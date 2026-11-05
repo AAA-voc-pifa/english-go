@@ -1,25 +1,30 @@
 @import "tailwindcss";
 
 :root {
-  --paper: #f3ecdf;
-  --ink: #1e1a16;
-  --muted: #6f675f;
-  --line: #e4d8c8;
-  --card: #fffaf3;
-  --accent: #9a3412;
-  --good: #1f6b4a;
-  --background: var(--paper);
+  --bg: #101311;
+  --panel: #181c19;
+  --ink: #f3f6ef;
+  --muted: #8e998c;
+  --line: #2c352e;
+  --lime: #d6f25c;
+  --lime-ink: #142000;
+  --good: #9be7b5;
+  --hot: #ff7a59;
+  --background: var(--bg);
   --foreground: var(--ink);
+  color-scheme: dark;
 }
 
 @theme inline {
-  --color-paper: var(--paper);
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
   --color-ink: var(--ink);
   --color-muted: var(--muted);
   --color-line: var(--line);
-  --color-card: var(--card);
-  --color-accent: var(--accent);
+  --color-lime: var(--lime);
+  --color-lime-ink: var(--lime-ink);
   --color-good: var(--good);
+  --color-hot: var(--hot);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
@@ -28,16 +33,17 @@
 }
 
 body {
-  background: var(--paper);
+  background: var(--bg);
   color: var(--ink);
   font-family: var(--font-sans), sans-serif;
 }
 
 ::selection {
-  background: #f0c9b0;
+  background: var(--lime);
+  color: var(--lime-ink);
 }
 
 :focus-visible {
-  outline: 2px solid var(--ink);
+  outline: 2px solid var(--lime);
   outline-offset: 3px;
 }

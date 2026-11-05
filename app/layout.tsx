@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Newsreader } from "next/font/google";
 import { PasswordGate } from "@/components/password-gate";
 import { ShortcutProvider } from "@/components/shortcuts";
-import { SiteHeader } from "@/components/site-header";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -29,15 +28,12 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
-      lang="en"
+      lang="zh-CN"
       className={`${geistSans.variable} ${geistMono.variable} ${newsreader.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <ShortcutProvider>
-          <PasswordGate>
-            <SiteHeader />
-            {children}
-          </PasswordGate>
+          <PasswordGate>{children}</PasswordGate>
         </ShortcutProvider>
       </body>
     </html>

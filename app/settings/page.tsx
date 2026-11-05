@@ -104,8 +104,8 @@ export default function SettingsPage() {
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-5 py-8">
       <div>
-        <p className="text-xs tracking-[0.22em] text-muted uppercase">设置</p>
-        <h1 className="mt-2 font-serif text-4xl italic tracking-tight">朗读和口令</h1>
+        <p className="font-mono text-[11px] tracking-[0.2em] text-muted uppercase">Settings</p>
+        <h1 className="mt-2 text-4xl tracking-tight">朗读和口令</h1>
       </div>
 
       <div className="flex flex-col gap-3">
@@ -118,7 +118,7 @@ export default function SettingsPage() {
             spellCheck={false}
             value={password}
             onChange={(event) => setDraft(event.target.value)}
-            className="h-11 rounded-full border border-line bg-card px-4 text-sm text-ink"
+            className="h-10 rounded-md border border-line bg-panel px-3 text-sm text-ink"
           />
         </label>
         <div className="flex flex-wrap items-center gap-3">
@@ -126,19 +126,19 @@ export default function SettingsPage() {
             type="button"
             onClick={() => void rememberPassword()}
             disabled={passwordPending}
-            className="inline-flex h-11 items-center justify-center rounded-full bg-ink px-4 text-sm font-medium text-paper disabled:opacity-50"
+            className="inline-flex h-10 items-center justify-center border border-lime bg-lime px-4 text-sm font-medium text-lime-ink disabled:opacity-40"
           >
             {passwordPending ? "正在核对" : "保存口令"}
           </button>
           <button
             type="button"
             onClick={forgetPassword}
-            className="inline-flex h-11 items-center justify-center rounded-full border border-line bg-card px-4 text-sm text-ink"
+            className="inline-flex h-10 items-center justify-center border border-line bg-panel px-4 text-sm text-ink"
           >
             清空
           </button>
           {passwordError ? (
-            <p role="alert" className="text-sm text-accent">
+            <p role="alert" className="text-sm text-hot">
               {passwordError}
             </p>
           ) : null}
@@ -146,7 +146,7 @@ export default function SettingsPage() {
       </div>
 
       <form onSubmit={(event) => void save(event)} className="flex flex-col gap-6">
-        <fieldset className="flex flex-col gap-4 rounded-[28px] border border-line bg-card px-5 py-5" disabled={!ready || pending}>
+        <fieldset className="flex flex-col gap-4 border border-line bg-panel px-5 py-5" disabled={!ready || pending}>
           <legend className="px-1 text-sm text-ink">朗读</legend>
           <label className="flex items-center justify-between gap-4">
             <span className="text-sm text-ink">自动朗读</span>
@@ -157,7 +157,7 @@ export default function SettingsPage() {
                 setAutoSpeak(event.target.checked)
                 setSaved(false)
               }}
-              className="size-4 accent-ink"
+              className="size-4 accent-lime"
             />
           </label>
           <label className="flex flex-col gap-2">
@@ -168,7 +168,7 @@ export default function SettingsPage() {
                 setRate(event.target.value as RateId)
                 setSaved(false)
               }}
-              className="h-11 rounded-full border border-line bg-paper px-4 text-sm text-ink"
+              className="h-10 rounded-md border border-line bg-bg px-3 text-sm text-ink"
             >
               {RATES.map((item) => (
                 <option key={item.id} value={item.id}>
@@ -195,7 +195,7 @@ export default function SettingsPage() {
           <button
             type="submit"
             disabled={!ready || pending}
-            className="inline-flex h-11 items-center justify-center rounded-full bg-ink px-4 text-sm font-medium text-paper disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-10 items-center justify-center border border-lime bg-lime px-4 text-sm font-medium text-lime-ink disabled:cursor-not-allowed disabled:opacity-40"
           >
             {pending ? "正在保存" : "保存"}
           </button>
@@ -205,7 +205,7 @@ export default function SettingsPage() {
             </p>
           ) : null}
           {error ? (
-            <p role="alert" className="text-sm text-accent">
+            <p role="alert" className="text-sm text-hot">
               {error}
             </p>
           ) : null}

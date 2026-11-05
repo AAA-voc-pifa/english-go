@@ -111,7 +111,7 @@ export function VoicePicker({
               setLanguage(event.target.value)
               setLocale("all")
             }}
-            className="h-11 rounded-full border border-line bg-paper px-4 text-sm text-ink"
+            className="h-10 rounded-md border border-line bg-bg px-3 text-sm text-ink"
           >
             {languages.map((item) => (
               <option key={item} value={item}>
@@ -126,7 +126,7 @@ export function VoicePicker({
             value={effectiveLocale}
             disabled={disabled || !voices}
             onChange={(event) => setLocale(event.target.value)}
-            className="h-11 rounded-full border border-line bg-paper px-4 text-sm text-ink"
+            className="h-10 rounded-md border border-line bg-bg px-3 text-sm text-ink"
           >
             <option value="all">全部</option>
             {locales.map((item) => (
@@ -142,7 +142,7 @@ export function VoicePicker({
             value={gender}
             disabled={disabled || !voices}
             onChange={(event) => setGender(event.target.value)}
-            className="h-11 rounded-full border border-line bg-paper px-4 text-sm text-ink"
+            className="h-10 rounded-md border border-line bg-bg px-3 text-sm text-ink"
           >
             <option value="all">全部</option>
             <option value="Female">女</option>
@@ -159,19 +159,19 @@ export function VoicePicker({
           disabled={disabled || !voices}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Aria / en-GB / Natasha"
-          className="h-11 rounded-full border border-line bg-paper px-4 text-sm text-ink"
+          className="h-10 rounded-md border border-line bg-bg px-3 text-sm text-ink"
         />
       </label>
 
       {!voices && !error ? <p className="text-sm text-muted">正在读取音色…</p> : null}
       {error ? (
-        <p role="alert" className="text-sm text-accent">
+        <p role="alert" className="text-sm text-hot">
           {error}
         </p>
       ) : null}
 
       {voices ? (
-        <div className="max-h-72 overflow-auto rounded-3xl border border-line bg-paper">
+        <div className="max-h-72 overflow-auto border border-line bg-bg">
           {filtered.length === 0 ? (
             <p className="px-4 py-6 text-sm text-muted">没有匹配的音色</p>
           ) : (
@@ -186,12 +186,12 @@ export function VoicePicker({
                       onClick={() => choose(item)}
                       className={
                         active
-                          ? "flex w-full flex-col items-start gap-0.5 bg-ink px-4 py-3 text-left text-paper"
-                          : "flex w-full flex-col items-start gap-0.5 px-4 py-3 text-left text-ink hover:bg-card"
+                          ? "flex w-full flex-col items-start gap-0.5 bg-lime px-4 py-3 text-left text-lime-ink"
+                          : "flex w-full flex-col items-start gap-0.5 px-4 py-3 text-left text-ink hover:bg-panel"
                       }
                     >
                       <span className="text-sm font-medium">{item.id}</span>
-                      <span className={active ? "text-xs text-paper/75" : "text-xs text-muted"}>
+                      <span className={active ? "text-xs text-lime-ink/70" : "text-xs text-muted"}>
                         {item.locale} · {item.gender}
                       </span>
                     </button>

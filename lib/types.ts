@@ -2,12 +2,18 @@ import type { RateId, TtsVoice } from "@/lib/speech"
 
 export type Award = 5 | 10 | 15
 
-export type QuizWord = {
+export const AWARD_LABEL: Record<Award, string> = {
+  5: "生疏",
+  10: "可以",
+  15: "很熟",
+}
+
+export type RoundWord = {
   word: string
   points: number
 }
 
-export type QuizQuestion = {
+export type Line = {
   id: string
   word: string
   en: string
@@ -16,18 +22,18 @@ export type QuizQuestion = {
   award: Award | null
 }
 
-export type Quiz = {
+export type Round = {
   id: string
   createdAt: string
-  words: QuizWord[]
-  questions: QuizQuestion[]
+  words: RoundWord[]
+  lines: Line[]
   cursor: number
 }
 
-export type QuizSummary = {
+export type RoundSummary = {
   id: string
   createdAt: string
-  words: QuizWord[]
+  words: RoundWord[]
   answered: number
   total: number
   gained: number
@@ -39,8 +45,8 @@ export type AppSettings = {
   rate: RateId
 }
 
-export type QuizResponse = { quiz: Quiz }
-export type QuizListResponse = { quizzes: QuizSummary[] }
+export type RoundResponse = { round: Round }
+export type RoundListResponse = { rounds: RoundSummary[] }
 export type SettingsResponse = { settings: AppSettings }
 export type VoicesResponse = { voices: TtsVoice[] }
 

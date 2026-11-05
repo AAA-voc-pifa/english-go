@@ -4,15 +4,15 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { KeyButton } from "@/components/key-button"
 import { requestJson } from "@/lib/http"
-import type { QuizResponse } from "@/lib/types"
+import type { RoundResponse } from "@/lib/types"
 
-export function CreateQuizButton({
+export function NewRoundButton({
   label,
-  tone = "solid",
+  tone = "lime",
   shortcut,
 }: {
   label: string
-  tone?: "solid" | "quiet"
+  tone?: "lime" | "ghost"
   shortcut?: string
 }) {
   const router = useRouter()
@@ -24,8 +24,8 @@ export function CreateQuizButton({
     setPending(true)
     setError(null)
     try {
-      const data = await requestJson<QuizResponse>("/api/quizzes", { method: "POST" })
-      router.push(`/q/${data.quiz.id}`)
+      const data = await requestJson<RoundResponse>("/api/rounds", { method: "POST" })
+      router.push(`/practice/${data.round.id}`)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "出题失败")
       setPending(false)
@@ -33,12 +33,12 @@ export function CreateQuizButton({
   }
 
   return (
-    <div className="relative flex flex-col items-start">
+    <div className="flex flex-col items-start gap-2">
       <KeyButton shortcut={shortcut} onClick={() => void create()} disabled={pending} tone={tone}>
         {pending ? "正在出题" : label}
       </KeyButton>
       {error ? (
-        <p role="alert" className="absolute top-full left-0 z-10 mt-2 w-64 text-sm leading-6 text-accent">
+        <p role="alert" className="max-w-xs text-sm leading-6 text-hot">
           {error}
         </p>
       ) : null}

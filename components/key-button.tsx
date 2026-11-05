@@ -3,14 +3,14 @@
 import { cn } from "@/lib/cn"
 import { useShortcut } from "@/components/shortcuts"
 
-type Tone = "solid" | "quiet" | "score"
+type Tone = "lime" | "ghost" | "score"
 
 export function KeyButton({
   shortcut,
   onClick,
   disabled = false,
   pressed = false,
-  tone = "quiet",
+  tone = "ghost",
   children,
 }: {
   shortcut?: string
@@ -30,18 +30,18 @@ export function KeyButton({
       aria-keyshortcuts={shortcut ? shortcut.toUpperCase() : undefined}
       aria-pressed={pressed}
       className={cn(
-        "inline-flex h-11 items-center justify-center gap-2 rounded-full px-4 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-        tone === "solid" && "bg-ink text-paper hover:bg-ink/90",
-        tone === "quiet" && "border border-line bg-card text-ink hover:border-ink/30",
+        "inline-flex h-10 items-center justify-center gap-2 border px-3 text-sm disabled:cursor-not-allowed disabled:opacity-40",
+        tone === "lime" && "border-lime bg-lime font-medium text-lime-ink hover:bg-lime/90",
+        tone === "ghost" && "border-line bg-panel text-ink hover:border-ink/30",
         tone === "score" &&
           (pressed
-            ? "border border-ink bg-ink text-paper"
-            : "border border-line bg-card text-ink hover:border-ink/30"),
+            ? "border-lime bg-lime font-medium text-lime-ink"
+            : "border-line bg-panel text-ink hover:border-lime/50"),
       )}
     >
       {children}
       {shortcut ? (
-        <kbd className="inline-grid h-5 min-w-5 place-items-center rounded border border-current/25 px-1 font-mono text-[11px] leading-none">
+        <kbd className="inline-grid h-5 min-w-5 place-items-center border border-current/30 px-1 font-mono text-[10px] leading-none">
           {shortcut.toUpperCase()}
         </kbd>
       ) : null}
