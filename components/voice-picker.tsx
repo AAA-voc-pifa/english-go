@@ -31,7 +31,7 @@ export function VoicePicker({
         if (!cancelled) setVoices(data.voices)
       })
       .catch((caught: unknown) => {
-        if (!cancelled) setError(caught instanceof Error ? caught.message : "读不到音色")
+        if (!cancelled) setError(caught instanceof Error ? caught.message : "Couldn't load voices")
       })
     return () => {
       cancelled = true
@@ -91,7 +91,7 @@ export function VoicePicker({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <span className="text-sm text-ink">阅读音色</span>
+        <span className="text-sm text-ink">Voice</span>
         {selected ? (
           <span className="text-xs text-muted">
             {selected.id} · {selected.gender}
@@ -103,7 +103,7 @@ export function VoicePicker({
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <label className="flex flex-col gap-1">
-          <span className="text-xs text-muted">语言</span>
+          <span className="text-xs text-muted">Language</span>
           <select
             value={languages.includes(language) ? language : languages[0] || language}
             disabled={disabled || !voices}
@@ -121,14 +121,14 @@ export function VoicePicker({
           </select>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs text-muted">地区</span>
+          <span className="text-xs text-muted">Locale</span>
           <select
             value={effectiveLocale}
             disabled={disabled || !voices}
             onChange={(event) => setLocale(event.target.value)}
             className="h-10 rounded-md border border-line bg-bg px-3 text-sm text-ink"
           >
-            <option value="all">全部</option>
+            <option value="all">All</option>
             {locales.map((item) => (
               <option key={item} value={item}>
                 {item}
@@ -137,22 +137,22 @@ export function VoicePicker({
           </select>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs text-muted">性别</span>
+          <span className="text-xs text-muted">Gender</span>
           <select
             value={gender}
             disabled={disabled || !voices}
             onChange={(event) => setGender(event.target.value)}
             className="h-10 rounded-md border border-line bg-bg px-3 text-sm text-ink"
           >
-            <option value="all">全部</option>
-            <option value="Female">女</option>
-            <option value="Male">男</option>
+            <option value="all">All</option>
+            <option value="Female">Female</option>
+            <option value="Male">Male</option>
           </select>
         </label>
       </div>
 
       <label className="flex flex-col gap-1">
-        <span className="text-xs text-muted">搜索</span>
+        <span className="text-xs text-muted">Search</span>
         <input
           type="search"
           value={query}
@@ -163,7 +163,7 @@ export function VoicePicker({
         />
       </label>
 
-      {!voices && !error ? <p className="text-sm text-muted">正在读取音色…</p> : null}
+      {!voices && !error ? <p className="text-sm text-muted">Loading voices…</p> : null}
       {error ? (
         <p role="alert" className="text-sm text-hot">
           {error}
@@ -173,7 +173,7 @@ export function VoicePicker({
       {voices ? (
         <div className="max-h-72 overflow-auto border border-line bg-bg">
           {filtered.length === 0 ? (
-            <p className="px-4 py-6 text-sm text-muted">没有匹配的音色</p>
+            <p className="px-4 py-6 text-sm text-muted">No matching voices</p>
           ) : (
             <ul className="divide-y divide-line">
               {filtered.map((item) => {

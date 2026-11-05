@@ -3,40 +3,65 @@ import type { RateId, TtsVoice } from "@/lib/speech"
 export type Award = 5 | 10 | 15
 
 export const AWARD_LABEL: Record<Award, string> = {
-  5: "生疏",
-  10: "可以",
-  15: "很熟",
+  5: "Rusty",
+  10: "Okay",
+  15: "Solid",
 }
 
-export type RoundWord = {
+export type PracticeWord = {
   word: string
   points: number
 }
 
-export type Line = {
+export type PracticeSummary = {
+  id: string
+  createdAt: string
+  words: PracticeWord[]
+  answered: number
+  total: number
+  gained: number
+}
+
+export type DeckCard = {
   id: string
   word: string
   en: string
   zh: string
   revealed: boolean
   award: Award | null
+  points: number
+  saved: boolean
 }
 
-export type Round = {
+export type DeckGroup = {
+  key: string
+  label: string
+  points: number
+  cardIds: string[]
+}
+
+export type Deck = {
   id: string
   createdAt: string
-  words: RoundWord[]
-  lines: Line[]
   cursor: number
+  cards: DeckCard[]
+  groups: DeckGroup[]
 }
 
-export type RoundSummary = {
+export type SavedSentence = {
+  id: string
+  word: string
+  en: string
+  zh: string
+  points: number
+  createdAt: string
+}
+
+export type ReviewSummary = {
   id: string
   createdAt: string
-  words: RoundWord[]
   answered: number
   total: number
-  gained: number
 }
 
 export type AppSettings = {
@@ -45,8 +70,10 @@ export type AppSettings = {
   rate: RateId
 }
 
-export type RoundResponse = { round: Round }
-export type RoundListResponse = { rounds: RoundSummary[] }
+export type DeckResponse = { deck: Deck }
+export type PracticeListResponse = { practices: PracticeSummary[] }
+export type SentenceListResponse = { sentences: SavedSentence[] }
+export type ReviewListResponse = { reviews: ReviewSummary[] }
 export type SettingsResponse = { settings: AppSettings }
 export type VoicesResponse = { voices: TtsVoice[] }
 

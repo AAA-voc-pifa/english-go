@@ -45,12 +45,12 @@ export async function updateSettings(patch: {
   const next: AppSettings = { ...(await getSettings()) }
   if (patch.autoSpeak !== undefined) next.autoSpeak = patch.autoSpeak
   if (patch.voice !== undefined) {
-    if (!isVoiceId(patch.voice)) throw new ApiError("没有这个音色", 400)
-    if (!(await voiceExists(patch.voice))) throw new ApiError("没有这个音色", 400)
+    if (!isVoiceId(patch.voice)) throw new ApiError("Unknown voice", 400)
+    if (!(await voiceExists(patch.voice))) throw new ApiError("Unknown voice", 400)
     next.voice = patch.voice
   }
   if (patch.rate !== undefined) {
-    if (!isRate(patch.rate)) throw new ApiError("语速不对", 400)
+    if (!isRate(patch.rate)) throw new ApiError("Unknown rate", 400)
     next.rate = patch.rate
   }
 

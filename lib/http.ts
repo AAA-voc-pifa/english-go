@@ -12,13 +12,13 @@ export async function requestJson<T>(url: string, init?: RequestInit): Promise<T
       },
     })
   } catch {
-    throw new Error("网络中断了")
+    throw new Error("The network dropped")
   }
 
   const payload = (await response.json().catch(() => null)) as { error?: unknown } | null
   if (!response.ok) {
     const message =
-      payload && typeof payload.error === "string" ? payload.error : `请求失败（${response.status}）`
+      payload && typeof payload.error === "string" ? payload.error : `Request failed (${response.status})`
     throw new Error(message)
   }
   return payload as T

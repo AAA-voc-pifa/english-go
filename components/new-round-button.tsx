@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { KeyButton } from "@/components/key-button"
 import { requestJson } from "@/lib/http"
-import type { RoundResponse } from "@/lib/types"
+import type { DeckResponse } from "@/lib/types"
 
 export function NewRoundButton({
   label,
@@ -24,10 +24,10 @@ export function NewRoundButton({
     setPending(true)
     setError(null)
     try {
-      const data = await requestJson<RoundResponse>("/api/rounds", { method: "POST" })
-      router.push(`/practice/${data.round.id}`)
+      const data = await requestJson<DeckResponse>("/api/practices", { method: "POST" })
+      router.push(`/practice/${data.deck.id}`)
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "出题失败")
+      setError(caught instanceof Error ? caught.message : "Couldn't write the sentences")
       setPending(false)
     }
   }
@@ -35,7 +35,7 @@ export function NewRoundButton({
   return (
     <div className="flex flex-col items-start gap-2">
       <KeyButton shortcut={shortcut} onClick={() => void create()} disabled={pending} tone={tone}>
-        {pending ? "正在出题" : label}
+        {pending ? "Writing" : label}
       </KeyButton>
       {error ? (
         <p role="alert" className="max-w-xs text-sm leading-6 text-hot">

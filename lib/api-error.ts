@@ -11,10 +11,10 @@ export class ApiError extends Error {
 export function asApiError(error: unknown): ApiError {
   if (error instanceof ApiError) return error
   if (error instanceof Error && error.name === "TimeoutError") {
-    return new ApiError("上游接口超时了", 504)
+    return new ApiError("The request timed out", 504)
   }
   if (error instanceof Error) return new ApiError(error.message, 500)
-  return new ApiError("出错了", 500)
+  return new ApiError("Something went wrong", 500)
 }
 
 export function jsonError(error: unknown): Response {

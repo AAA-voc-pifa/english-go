@@ -1,20 +1,20 @@
 import { route } from "@/lib/api-error"
 import { requirePassword } from "@/lib/auth"
-import { createRound, listRounds } from "@/lib/rounds"
+import { createPractice, listPractices } from "@/lib/practices"
 
 export const maxDuration = 120
 
 export function GET() {
   return route(async () => {
-    const rounds = await listRounds()
-    return Response.json({ rounds })
+    const practices = await listPractices()
+    return Response.json({ practices })
   })
 }
 
 export function POST(request: Request) {
   return route(async () => {
     requirePassword(request)
-    const round = await createRound()
-    return Response.json({ round }, { status: 201 })
+    const deck = await createPractice()
+    return Response.json({ deck }, { status: 201 })
   })
 }

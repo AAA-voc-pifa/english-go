@@ -2,7 +2,7 @@ import { ApiError } from "@/lib/api-error"
 
 function required(name: string): string {
   const value = process.env[name]?.trim()
-  if (!value) throw new ApiError(`缺少环境变量 ${name}`, 500)
+  if (!value) throw new ApiError(`Missing ${name}`, 500)
   return value
 }
 

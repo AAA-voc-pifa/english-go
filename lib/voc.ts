@@ -25,9 +25,9 @@ async function vocFetch(url: URL, method: "GET" | "POST"): Promise<unknown> {
     })
   } catch (error) {
     if (error instanceof Error && error.name === "TimeoutError") {
-      throw new ApiError("词表接口超时了", 504)
+      throw new ApiError("The word list timed out", 504)
     }
-    throw new ApiError("词表接口连不上", 502)
+    throw new ApiError("Can't reach the word list", 502)
   }
 
   const body: unknown = await response.json().catch(() => null)
@@ -39,10 +39,10 @@ async function vocFetch(url: URL, method: "GET" | "POST"): Promise<unknown> {
 
 function vocMessage(body: unknown, status: number): string {
   if (isRecord(body) && typeof body.error === "string" && body.error) {
-    return `词表接口：${body.error}`
+    return `Word list: ${body.error}`
   }
-  if (status === 401) return "词表接口未授权，检查 VOC_API_PASSWORD"
-  return `词表接口失败（${status}）`
+  if (status === 401) return "The word list rejected the password. Check VOC_API_PASSWORD"
+  return `Word list failed (${status})`
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -51,7 +51,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function readWord(value: unknown): VocWord {
   if (!isRecord(value) || typeof value.word !== "string" || typeof value.points !== "number") {
-    throw new ApiError("词表接口返回无法识别", 502)
+    throw new ApiError("The word list response was unreadable", 502)
   }
   return { word: value.word, points: value.points }
 }
@@ -59,7 +59,7 @@ function readWord(value: unknown): VocWord {
 export async function listLowest(count: number, points: number): Promise<VocWord[]> {
   const body = await vocFetch(vocUrl("voc", { count: String(count), points: String(points) }), "GET")
   if (!isRecord(body) || body.ok !== true || !Array.isArray(body.data)) {
-    throw new ApiError("词表接口返回无法识别", 502)
+    throw new ApiError("The word list response was unreadable", 502)
   }
   return body.data.map(readWord)
 }
@@ -67,8 +67,8 @@ export async function listLowest(count: number, points: number): Promise<VocWord
 export async function getWordPoints(word: string): Promise<number> {
   const body = await vocFetch(vocUrl(`voc/detail/${encodeURIComponent(word)}`), "GET")
   if (!isRecord(body) || body.ok !== true) {
-    const message = isRecord(body) && typeof body.error === "string" ? body.error : "读不到单词分数"
-    throw new ApiError(`词表接口：${message}`, 502)
+    const message = isRecord(body) && typeof body.error === "string" ? body.error : "Couldn't read the word score"
+    throw new ApiError(`Word list: ${message}`, 502)
   }
   return readWord(body.data).points
 }
@@ -79,8 +79,8 @@ export async function setWordPoints(word: string, points: number): Promise<void>
     "POST",
   )
   if (!isRecord(body) || body.ok !== true) {
-    const message = isRecord(body) && typeof body.error === "string" ? body.error : "加分失败"
-    throw new ApiError(`词表接口：${message}`, 502)
+    const message = isRecord(body) && typeof body.error === "string" ? body.error : "Couldn't add points"
+    throw new ApiError(`Word list: ${message}`, 502)
   }
 }
 

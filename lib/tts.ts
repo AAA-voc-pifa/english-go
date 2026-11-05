@@ -21,9 +21,9 @@ async function ttsFetch(path: string, init?: RequestInit): Promise<Response> {
     })
   } catch (error) {
     if (error instanceof Error && error.name === "TimeoutError") {
-      throw new ApiError("朗读超时了", 504)
+      throw new ApiError("Speech timed out", 504)
     }
-    throw new ApiError("语音合成连不上", 502)
+    throw new ApiError("Can't reach speech synthesis", 502)
   }
 }
 
@@ -53,19 +53,19 @@ export async function listVoices(): Promise<TtsVoice[]> {
   const text = await response.text()
   if (!response.ok) {
     const detail = text.replace(/\s+/g, " ").trim().slice(0, 180)
-    throw new ApiError(detail ? `读不到音色：${detail}` : "读不到音色", 502)
+    throw new ApiError(detail ? `Couldn't load voices: ${detail}` : "Couldn't load voices", 502)
   }
 
   let body: unknown
   try {
     body = JSON.parse(text)
   } catch {
-    throw new ApiError("音色列表不是 JSON", 502)
+    throw new ApiError("Voice list was not JSON", 502)
   }
-  if (!Array.isArray(body)) throw new ApiError("音色列表无法识别", 502)
+  if (!Array.isArray(body)) throw new ApiError("Voice list was unreadable", 502)
 
   const voices = body.map(readVoice).filter((item): item is TtsVoice => item !== null)
-  if (voices.length === 0) throw new ApiError("音色列表是空的", 502)
+  if (voices.length === 0) throw new ApiError("Voice list is empty", 502)
   return voices
 }
 
@@ -90,14 +90,14 @@ export async function synthesize(text: string, speech: { voice: string; rate: st
     })
   } catch (error) {
     if (error instanceof Error && error.name === "TimeoutError") {
-      throw new ApiError("朗读超时了", 504)
+      throw new ApiError("Speech timed out", 504)
     }
-    throw new ApiError("语音合成连不上", 502)
+    throw new ApiError("Can't reach speech synthesis", 502)
   }
 
   if (!response.ok || !response.body) {
     const detail = (await response.text().catch(() => "")).replace(/\s+/g, " ").trim().slice(0, 180)
-    throw new ApiError(detail ? `朗读失败：${detail}` : "朗读失败", 502)
+    throw new ApiError(detail ? `Speech failed: ${detail}` : "Speech failed", 502)
   }
 
   return new Response(response.body, {

@@ -29,7 +29,7 @@ function PasswordPrompt() {
     event.preventDefault()
     if (pending) return
     if (!password) {
-      setError("先填写口令")
+      setError("Enter a password")
       return
     }
     setPending(true)
@@ -41,7 +41,7 @@ function PasswordPrompt() {
       })
       writePassword(password)
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "口令不对")
+      setError(caught instanceof Error ? caught.message : "Wrong password")
     } finally {
       setPending(false)
     }
@@ -54,7 +54,7 @@ function PasswordPrompt() {
     >
       <form onSubmit={(event) => void submit(event)} className="flex w-full max-w-md flex-col gap-4">
         <p className="font-mono text-[11px] tracking-[0.2em] text-muted uppercase">English Go</p>
-        <h1 className="text-4xl tracking-tight">口令</h1>
+        <h1 className="text-4xl tracking-tight">Password</h1>
         <input
           type="password"
           name="password"
@@ -70,7 +70,7 @@ function PasswordPrompt() {
             disabled={pending}
             className="inline-flex h-10 items-center justify-center border border-lime bg-lime px-4 text-sm font-medium text-lime-ink disabled:opacity-40"
           >
-            {pending ? "正在核对" : "进入"}
+            {pending ? "Checking" : "Enter"}
           </button>
           {error ? (
             <p role="alert" className="text-sm text-hot">
@@ -88,7 +88,7 @@ function PasswordCover({ mode }: { mode: "loading" | "prompt" }) {
     return (
       <div data-password-lock="" className="fixed inset-0 z-40 flex items-center bg-bg px-5">
         <p role="status" className="text-muted">
-          正在读取…
+          Loading…
         </p>
       </div>
     )

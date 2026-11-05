@@ -6,6 +6,6 @@ export function requirePassword(request: Request) {
   const given = Buffer.from(request.headers.get("password") ?? "")
   const expected = Buffer.from(env().appPassword)
   if (given.length !== expected.length || !timingSafeEqual(given, expected)) {
-    throw new ApiError("口令不对", 401)
+    throw new ApiError("Wrong password", 401)
   }
 }

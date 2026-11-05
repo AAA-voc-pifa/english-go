@@ -15,11 +15,15 @@ export function PracticeDock({
   revealed,
   award,
   awardPending,
+  saved,
+  savePending,
   onPrev,
   onNext,
   onSpeak,
   onReveal,
   onAward,
+  onSave,
+  scoreLabel,
 }: {
   canPrev: boolean
   canNext: boolean
@@ -28,30 +32,39 @@ export function PracticeDock({
   revealed: boolean
   award: Award | null
   awardPending: boolean
+  saved?: boolean
+  savePending?: boolean
   onPrev: () => void
   onNext: () => void
   onSpeak: () => void
   onReveal: () => void
   onAward: (points: Award) => void
+  onSave?: () => void
+  scoreLabel: string
 }) {
   return (
     <div className="sticky bottom-0 z-10 border-t border-line bg-bg/95 backdrop-blur">
       <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-2 px-4 py-3">
         <KeyButton shortcut="j" onClick={onPrev} disabled={!canPrev}>
-          上一题
+          Previous
         </KeyButton>
         <KeyButton shortcut="k" onClick={onNext} disabled={!canNext}>
-          下一题
+          Next
         </KeyButton>
         <span className="mx-1 hidden h-6 w-px bg-line sm:block" aria-hidden="true" />
         <KeyButton shortcut="p" onClick={onSpeak} disabled={speechPending}>
           {speechLabel}
         </KeyButton>
         <KeyButton shortcut="r" onClick={onReveal} pressed={revealed}>
-          {revealed ? "收起译文" : "显示译文"}
+          {revealed ? "Hide" : "Translation"}
         </KeyButton>
+        {onSave ? (
+          <KeyButton shortcut="f" onClick={onSave} pressed={saved} disabled={savePending || saved}>
+            {saved ? "Saved" : savePending ? "Saving" : "Save"}
+          </KeyButton>
+        ) : null}
         <span className="mx-1 hidden h-6 w-px bg-line sm:block" aria-hidden="true" />
-        <div className="flex flex-wrap gap-2" role="group" aria-label="给这个单词加分">
+        <div className="flex flex-wrap gap-2" role="group" aria-label={scoreLabel}>
           {SCORES.map((item) => (
             <KeyButton
               key={item.points}

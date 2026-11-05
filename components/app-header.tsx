@@ -10,6 +10,7 @@ export function AppHeader() {
   const router = useRouter()
   const pathname = usePathname()
   useShortcut("h", () => router.push("/history"))
+  useShortcut("c", () => router.push("/sentences"))
 
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-bg/90 backdrop-blur">
@@ -18,7 +19,7 @@ export function AppHeader() {
           English Go
         </Link>
         <nav className="flex items-center gap-2">
-          <NewRoundButton label="新练习" tone="ghost" shortcut="n" />
+          <NewRoundButton label="New" tone="ghost" shortcut="n" />
           <Link
             href="/history"
             aria-current={pathname === "/history" ? "page" : undefined}
@@ -27,9 +28,22 @@ export function AppHeader() {
               pathname === "/history" ? "border-lime text-lime" : "text-ink",
             )}
           >
-            记录
+            History
             <kbd className="inline-grid h-5 min-w-5 place-items-center border border-current/30 px-1 font-mono text-[10px] leading-none">
               H
+            </kbd>
+          </Link>
+          <Link
+            href="/sentences"
+            aria-current={pathname === "/sentences" ? "page" : undefined}
+            className={cn(
+              "inline-flex h-10 items-center gap-2 border border-line bg-panel px-3 text-sm",
+              pathname === "/sentences" ? "border-lime text-lime" : "text-ink",
+            )}
+          >
+            Sentences
+            <kbd className="inline-grid h-5 min-w-5 place-items-center border border-current/30 px-1 font-mono text-[10px] leading-none">
+              C
             </kbd>
           </Link>
           <Link
@@ -40,7 +54,7 @@ export function AppHeader() {
               pathname === "/settings" ? "border-lime text-lime" : "text-ink",
             )}
           >
-            设置
+            Settings
           </Link>
         </nav>
       </div>

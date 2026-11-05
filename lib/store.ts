@@ -1,17 +1,17 @@
 import { MongoServerError, ObjectId, type Collection, type Db } from "mongodb"
 import { getDb } from "@/lib/mongo"
-import { isAward, type Award, type RoundWord } from "@/lib/types"
+import { isAward, type Award, type PracticeWord } from "@/lib/types"
 
-export type RoundDoc = {
+export type PracticeDoc = {
   _id: ObjectId
   createdAt: Date
   cursor: number
-  words: RoundWord[]
+  words: PracticeWord[]
 }
 
-export type LineDoc = {
+export type PracticeLineDoc = {
   _id: ObjectId
-  roundId: ObjectId
+  practiceId: ObjectId
   position: number
   word: string
   en: string
@@ -20,7 +20,17 @@ export type LineDoc = {
   award: Award | null
 }
 
-type LegacyLine = {
+export type SentenceDoc = {
+  _id: ObjectId
+  word: string
+  en: string
+  zh: string
+  points: number
+  createdAt: Date
+}
+
+export type ReviewItemDoc = {
+  sentenceId: ObjectId
   word: string
   en: string
   zh: string
@@ -28,31 +38,51 @@ type LegacyLine = {
   award: Award | null
 }
 
-const MIGRATION_ID = "legacy-quizzes-v1"
+export type ReviewDoc = {
+  _id: ObjectId
+  createdAt: Date
+  cursor: number
+  items: ReviewItemDoc[]
+}
+
+const MIGRATION_ID = "legacy-quizzes-rounds-v1"
 
 let ready: Promise<void> | null = null
 
 export async function collections(): Promise<{
-  rounds: Collection<RoundDoc>
-  lines: Collection<LineDoc>
+  practices: Collection<PracticeDoc>
+  practiceLines: Collection<PracticeLineDoc>
+  sentences: Collection<SentenceDoc>
+  reviews: Collection<ReviewDoc>
 }> {
   const db = await getDb()
-  const rounds = db.collection<RoundDoc>("rounds")
-  const lines = db.collection<LineDoc>("lines")
-  ready ??= prepare(db, rounds, lines).catch((error: unknown) => {
+  const practices = db.collection<PracticeDoc>("practices")
+  const practiceLines = db.collection<PracticeLineDoc>("practice_lines")
+  const sentences = db.collection<SentenceDoc>("sentences")
+  const reviews = db.collection<ReviewDoc>("reviews")
+  ready ??= prepare(db, practices, practiceLines, sentences, reviews).catch((error: unknown) => {
     ready = null
     throw error
   })
   await ready
-  return { rounds, lines }
+  return { practices, practiceLines, sentences, reviews }
 }
 
-async function prepare(db: Db, rounds: Collection<RoundDoc>, lines: Collection<LineDoc>) {
+async function prepare(
+  db: Db,
+  practices: Collection<PracticeDoc>,
+  practiceLines: Collection<PracticeLineDoc>,
+  sentences: Collection<SentenceDoc>,
+  reviews: Collection<ReviewDoc>,
+) {
   await Promise.all([
-    rounds.createIndex({ createdAt: -1 }, { name: "createdAt_desc" }),
-    lines.createIndex({ roundId: 1, position: 1 }, { unique: true, name: "round_position" }),
+    practices.createIndex({ createdAt: -1 }, { name: "createdAt_desc" }),
+    practiceLines.createIndex({ practiceId: 1, position: 1 }, { unique: true, name: "practice_position" }),
+    sentences.createIndex({ en: 1 }, { unique: true, name: "en" }),
+    sentences.createIndex({ points: 1, createdAt: 1 }, { name: "points_createdAt" }),
+    reviews.createIndex({ createdAt: -1 }, { name: "createdAt_desc" }),
   ])
-  await migrateLegacyQuizzes(db, rounds, lines)
+  await migrateLegacy(db, practices, practiceLines)
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -63,9 +93,9 @@ function isDuplicate(error: unknown): boolean {
   return error instanceof MongoServerError && error.code === 11000
 }
 
-function readWords(value: unknown): RoundWord[] | null {
+function readWords(value: unknown): PracticeWord[] | null {
   if (!Array.isArray(value)) return null
-  const words: RoundWord[] = []
+  const words: PracticeWord[] = []
   for (const item of value) {
     if (!isRecord(item) || typeof item.word !== "string" || typeof item.points !== "number") return null
     words.push({ word: item.word, points: item.points })
@@ -73,85 +103,125 @@ function readWords(value: unknown): RoundWord[] | null {
   return words
 }
 
-function readLines(value: unknown): LegacyLine[] | null {
-  if (!Array.isArray(value)) return null
-  const lines: LegacyLine[] = []
-  for (const item of value) {
-    if (!isRecord(item)) return null
-    if (typeof item.word !== "string" || typeof item.en !== "string" || typeof item.zh !== "string") return null
-    if (item.award !== null && item.award !== undefined && (typeof item.award !== "number" || !isAward(item.award))) {
-      return null
-    }
-    lines.push({
-      word: item.word,
-      en: item.en,
-      zh: item.zh,
-      revealed: item.revealed === true,
-      award: typeof item.award === "number" && isAward(item.award) ? item.award : null,
-    })
-  }
-  return lines
+function readAward(value: unknown): Award | null | undefined {
+  if (value === null || value === undefined) return null
+  if (typeof value === "number" && isAward(value)) return value
+  return undefined
 }
 
-async function migrateLegacyQuizzes(db: Db, rounds: Collection<RoundDoc>, lines: Collection<LineDoc>) {
-  const meta = db.collection<{ _id: string; count: number }>("meta")
-  if (await meta.findOne({ _id: MIGRATION_ID })) return
+async function migrateLegacy(
+  db: Db,
+  practices: Collection<PracticeDoc>,
+  practiceLines: Collection<PracticeLineDoc>,
+) {
+  const migrations = db.collection<{ _id: string }>("migrations")
+  if (await migrations.findOne({ _id: MIGRATION_ID })) return
 
-  const names = await db.listCollections({ name: "quizzes" }, { nameOnly: true }).toArray()
-  if (names.length === 0) {
-    await meta.updateOne({ _id: MIGRATION_ID }, { $set: { count: 0 } }, { upsert: true })
-    return
-  }
+  await migrateRounds(db, practices, practiceLines)
+  await migrateQuizzes(db, practices, practiceLines)
+  await migrations.updateOne({ _id: MIGRATION_ID }, { $set: { at: new Date() } }, { upsert: true })
+}
 
-  const legacy = await db.collection("quizzes").find().toArray()
-  let count = 0
-  for (const raw of legacy) {
+async function migrateRounds(
+  db: Db,
+  practices: Collection<PracticeDoc>,
+  practiceLines: Collection<PracticeLineDoc>,
+) {
+  const names = await db.listCollections({ name: "rounds" }, { nameOnly: true }).toArray()
+  if (names.length === 0) return
+  const legacyLines = db.collection("lines")
+
+  for await (const raw of db.collection("rounds").find()) {
     if (!isRecord(raw) || !(raw._id instanceof ObjectId)) continue
     const words = readWords(raw.words)
-    const questions = readLines(raw.questions)
+    if (!words) continue
+    const createdAt = raw.createdAt instanceof Date ? raw.createdAt : new Date()
+    const cursor = typeof raw.cursor === "number" && Number.isInteger(raw.cursor) ? raw.cursor : 0
+    await upsertPractice(practices, raw._id, { createdAt, cursor, words })
+
+    const stored = await legacyLines.find({ roundId: raw._id }).sort({ position: 1 }).toArray()
+    const lines: PracticeLineDoc[] = []
+    for (const item of stored) {
+      if (!isRecord(item) || !(item._id instanceof ObjectId)) continue
+      const award = readAward(item.award)
+      if (award === undefined) continue
+      if (typeof item.word !== "string" || typeof item.en !== "string" || typeof item.zh !== "string") continue
+      const position = typeof item.position === "number" ? item.position : lines.length
+      lines.push({
+        _id: item._id,
+        practiceId: raw._id,
+        position,
+        word: item.word,
+        en: item.en,
+        zh: item.zh,
+        revealed: item.revealed === true,
+        award,
+      })
+    }
+    await replaceLines(practiceLines, raw._id, lines)
+  }
+}
+
+async function migrateQuizzes(
+  db: Db,
+  practices: Collection<PracticeDoc>,
+  practiceLines: Collection<PracticeLineDoc>,
+) {
+  const names = await db.listCollections({ name: "quizzes" }, { nameOnly: true }).toArray()
+  if (names.length === 0) return
+
+  for await (const raw of db.collection("quizzes").find()) {
+    if (!isRecord(raw) || !(raw._id instanceof ObjectId)) continue
+    if (await practices.findOne({ _id: raw._id }, { projection: { _id: 1 } })) continue
+    const words = readWords(raw.words)
+    const questions = Array.isArray(raw.questions) ? raw.questions : null
     if (!words || !questions) continue
+
+    const lines: PracticeLineDoc[] = []
+    for (const item of questions) {
+      if (!isRecord(item)) continue
+      const award = readAward(item.award)
+      if (award === undefined) continue
+      if (typeof item.word !== "string" || typeof item.en !== "string" || typeof item.zh !== "string") continue
+      lines.push({
+        _id: new ObjectId(),
+        practiceId: raw._id,
+        position: lines.length,
+        word: item.word,
+        en: item.en,
+        zh: item.zh,
+        revealed: item.revealed === true,
+        award,
+      })
+    }
 
     const createdAt = raw.createdAt instanceof Date ? raw.createdAt : new Date()
     const cursor = typeof raw.cursor === "number" && Number.isInteger(raw.cursor) ? raw.cursor : 0
-    try {
-      await rounds.updateOne(
-        { _id: raw._id },
-        { $setOnInsert: { createdAt, cursor, words } },
-        { upsert: true },
-      )
-    } catch (error) {
-      if (!isDuplicate(error)) throw error
-    }
-
-    const existing = await lines.countDocuments({ roundId: raw._id })
-    if (existing === questions.length) {
-      count += 1
-      continue
-    }
-    if (existing > 0) await lines.deleteMany({ roundId: raw._id })
-    if (questions.length === 0) {
-      count += 1
-      continue
-    }
-
-    try {
-      await lines.insertMany(
-        questions.map((question, position) => ({
-          _id: new ObjectId(),
-          roundId: raw._id as ObjectId,
-          position,
-          word: question.word,
-          en: question.en,
-          zh: question.zh,
-          revealed: question.revealed,
-          award: question.award,
-        })),
-      )
-    } catch (error) {
-      if (!isDuplicate(error)) throw error
-    }
-    count += 1
+    await upsertPractice(practices, raw._id, { createdAt, cursor, words })
+    await replaceLines(practiceLines, raw._id, lines)
   }
+}
 
-  await meta.updateOne({ _id: MIGRATION_ID }, { $set: { count } }, { upsert: true })
+async function upsertPractice(
+  practices: Collection<PracticeDoc>,
+  id: ObjectId,
+  doc: { createdAt: Date; cursor: number; words: PracticeWord[] },
+) {
+  try {
+    await practices.updateOne({ _id: id }, { $setOnInsert: doc }, { upsert: true })
+  } catch (error) {
+    if (!isDuplicate(error)) throw error
+  }
+}
+
+async function replaceLines(practiceLines: Collection<PracticeLineDoc>, practiceId: ObjectId, lines: PracticeLineDoc[]) {
+  const existing = await practiceLines.countDocuments({ practiceId })
+  if (existing === lines.length) return
+  if (existing > 0) await practiceLines.deleteMany({ practiceId })
+  if (lines.length === 0) return
+  try {
+    await practiceLines.insertMany(lines)
+  } catch (error) {
+    if (!isDuplicate(error)) throw error
+  }
 }

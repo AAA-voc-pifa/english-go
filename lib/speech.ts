@@ -1,9 +1,9 @@
 export const RATES = [
-  { id: "-30%", label: "慢" },
-  { id: "-15%", label: "稍慢" },
-  { id: "+0%", label: "正常" },
-  { id: "+15%", label: "稍快" },
-  { id: "+30%", label: "快" },
+  { id: "-30%", label: "Slow" },
+  { id: "-15%", label: "Slower" },
+  { id: "+0%", label: "Normal" },
+  { id: "+15%", label: "Faster" },
+  { id: "+30%", label: "Fast" },
 ] as const
 
 export type RateId = (typeof RATES)[number]["id"]

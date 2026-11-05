@@ -15,7 +15,7 @@ export async function getDb(): Promise<Db> {
       await client.connect()
     } catch (error) {
       console.error("mongodb connect failed", error instanceof Error ? error.name : "error")
-      throw new ApiError("连不上 MongoDB。先把数据库启动起来。", 503)
+      throw new ApiError("Can't reach MongoDB. Start the database first.", 503)
     }
     globalForMongo.mongoClient = client
     globalForMongo.mongoUri = mongodbUri

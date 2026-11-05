@@ -16,9 +16,9 @@ function stopActive() {
 }
 
 export function speechLabel(lineId: string, target: string | null, phase: Phase): string {
-  if (target !== lineId || phase === "idle") return "朗读"
-  if (phase === "playing") return "播放中"
-  return "读取音频"
+  if (target !== lineId || phase === "idle") return "Speak"
+  if (phase === "playing") return "Playing"
+  return "Loading"
 }
 
 export function useLineAudio() {
@@ -51,13 +51,13 @@ export function useLineAudio() {
     setError(null)
 
     try {
-      const response = await fetch(`/api/speak?line=${encodeURIComponent(lineId)}`, {
+      const response = await fetch(`/api/speak?card=${encodeURIComponent(lineId)}`, {
         headers: passwordHeaders(),
       })
       if (token.current !== next) return
       if (!response.ok) {
         const payload = (await response.json().catch(() => null)) as { error?: unknown } | null
-        const message = payload && typeof payload.error === "string" ? payload.error : "这段音频读不出来"
+        const message = payload && typeof payload.error === "string" ? payload.error : "Couldn't read this sentence"
         throw new Error(message)
       }
       const objectUrl = URL.createObjectURL(await response.blob())
@@ -79,7 +79,7 @@ export function useLineAudio() {
         if (activeAudio !== audio) return
         stopActive()
         setPhase("idle")
-        setError("这段音频读不出来")
+        setError("Couldn't read this sentence")
       })
       await audio.play()
       if (token.current !== next) {
@@ -91,7 +91,7 @@ export function useLineAudio() {
       if (token.current !== next) return
       stopActive()
       setPhase("idle")
-      setError(caught instanceof Error ? caught.message : "浏览器拦住了播放")
+      setError(caught instanceof Error ? caught.message : "The browser blocked playback")
     }
   }, [])
 
