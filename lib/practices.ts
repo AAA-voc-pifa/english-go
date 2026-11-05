@@ -41,7 +41,7 @@ async function linesFor(practiceId: ObjectId): Promise<PracticeLineDoc[]> {
   return practiceLines.find({ practiceId }, { sort: { position: 1 } }).toArray()
 }
 
-async function savedEnglish(lines: PracticeLineDoc[]): Promise<Set<string>> {
+async function starredEnglish(lines: PracticeLineDoc[]): Promise<Set<string>> {
   const { sentences } = await collections()
   if (lines.length === 0) return new Set()
   const docs = await sentences
@@ -51,7 +51,7 @@ async function savedEnglish(lines: PracticeLineDoc[]): Promise<Set<string>> {
   return new Set(docs.map((doc) => doc.en))
 }
 
-function toDeck(doc: PracticeDoc, lineDocs: PracticeLineDoc[], saved: Set<string>): Deck {
+function toDeck(doc: PracticeDoc, lineDocs: PracticeLineDoc[], starred: Set<string>): Deck {
   const ordered = lineDocs.slice().sort((left, right) => left.position - right.position)
   const points = new Map(doc.words.map((word) => [word.word, word.points]))
   const cards: DeckCard[] = ordered.map((line) => ({
@@ -62,7 +62,7 @@ function toDeck(doc: PracticeDoc, lineDocs: PracticeLineDoc[], saved: Set<string
     revealed: line.revealed,
     award: line.award,
     points: points.get(line.word) ?? 0,
-    saved: saved.has(line.en),
+    starred: starred.has(line.en),
   }))
   const groups: DeckGroup[] = doc.words.map((word) => ({
     key: word.word,
@@ -82,7 +82,7 @@ function toDeck(doc: PracticeDoc, lineDocs: PracticeLineDoc[], saved: Set<string
 
 async function readDeck(doc: PracticeDoc): Promise<Deck> {
   const lines = await linesFor(doc._id)
-  return toDeck(doc, lines, await savedEnglish(lines))
+  return toDeck(doc, lines, await starredEnglish(lines))
 }
 
 export async function createPractice(): Promise<Deck> {

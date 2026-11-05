@@ -30,7 +30,7 @@ export type DeckCard = {
   revealed: boolean
   award: Award | null
   points: number
-  saved: boolean
+  starred: boolean
 }
 
 export type DeckGroup = {
@@ -48,7 +48,7 @@ export type Deck = {
   groups: DeckGroup[]
 }
 
-export type SavedSentence = {
+export type StarredSentence = {
   id: string
   word: string
   en: string
@@ -72,7 +72,7 @@ export type AppSettings = {
 
 export type DeckResponse = { deck: Deck }
 export type PracticeListResponse = { practices: PracticeSummary[] }
-export type SentenceListResponse = { sentences: SavedSentence[] }
+export type SentenceListResponse = { sentences: StarredSentence[] }
 export type ReviewListResponse = { reviews: ReviewSummary[] }
 export type SettingsResponse = { settings: AppSettings }
 export type VoicesResponse = { voices: TtsVoice[] }

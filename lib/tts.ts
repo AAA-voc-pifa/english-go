@@ -48,6 +48,16 @@ function readVoice(value: unknown): TtsVoice | null {
   }
 }
 
+export async function verifyTtsPassword(): Promise<void> {
+  const response = await ttsFetch("auth")
+  if (response.status === 204 || response.ok) return
+  const detail = (await response.text().catch(() => "")).replace(/\s+/g, " ").trim().slice(0, 180)
+  if (response.status === 403 || response.status === 401) {
+    throw new Error("Speech rejected the password. Check TTS_API_PASSWORD")
+  }
+  throw new Error(detail ? `Speech auth failed: ${detail}` : `Speech auth failed (${response.status})`)
+}
+
 export async function listVoices(): Promise<TtsVoice[]> {
   const response = await ttsFetch("voice")
   const text = await response.text()

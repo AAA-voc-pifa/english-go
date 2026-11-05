@@ -1,5 +1,6 @@
 "use client"
 
+import { History, Settings, Star } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { NewRoundButton } from "@/components/new-round-button"
@@ -28,6 +29,7 @@ export function AppHeader() {
               pathname === "/history" ? "border-lime text-lime" : "text-ink",
             )}
           >
+            <History aria-hidden="true" className="size-4" />
             History
             <kbd className="inline-grid h-5 min-w-5 place-items-center border border-current/30 px-1 font-mono text-[10px] leading-none">
               H
@@ -41,7 +43,8 @@ export function AppHeader() {
               pathname === "/sentences" ? "border-lime text-lime" : "text-ink",
             )}
           >
-            Sentences
+            <Star aria-hidden="true" className="size-4" />
+            Favourites
             <kbd className="inline-grid h-5 min-w-5 place-items-center border border-current/30 px-1 font-mono text-[10px] leading-none">
               C
             </kbd>
@@ -50,10 +53,11 @@ export function AppHeader() {
             href="/settings"
             aria-current={pathname === "/settings" ? "page" : undefined}
             className={cn(
-              "inline-flex h-10 items-center border border-line bg-panel px-3 text-sm",
+              "inline-flex h-10 items-center gap-2 border border-line bg-panel px-3 text-sm",
               pathname === "/settings" ? "border-lime text-lime" : "text-ink",
             )}
           >
+            <Settings aria-hidden="true" className="size-4" />
             Settings
           </Link>
         </nav>

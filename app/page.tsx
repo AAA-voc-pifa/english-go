@@ -42,5 +42,5 @@ export default function HomePage() {
     )
   }
 
-  return <DeckSession key={latestId} id={latestId} kind="practice" />
+  return <DeckSession key={latestId} id={latestId} kind="practice" view="sentence" />
 }

@@ -34,14 +34,22 @@ function endpoint(kind: "practice" | "review", id: string, cardId?: string): str
   return cardId ? `/api/reviews/${id}/cards/${cardId}` : `/api/reviews/${id}`
 }
 
-export function DeckSession({ id, kind }: { id: string; kind: "practice" | "review" }) {
+export function DeckSession({
+  id,
+  kind,
+  view = "deck",
+}: {
+  id: string
+  kind: "practice" | "review"
+  view?: "deck" | "sentence"
+}) {
   const [deck, setDeck] = useState<Deck | null>(null)
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [awardPending, setAwardPending] = useState(false)
-  const [savePending, setSavePending] = useState(false)
+  const [starPending, setStarPending] = useState(false)
   const savedCursor = useRef<number | null>(null)
   const { target, phase, error: soundError, play, stop, dismissError } = useLineAudio()
 
@@ -153,13 +161,13 @@ export function DeckSession({ id, kind }: { id: string; kind: "practice" | "revi
     }
   }
 
-  async function save(item: DeckCard) {
-    if (kind !== "practice" || savePending || item.saved) return
-    setSavePending(true)
+  async function star(item: DeckCard) {
+    if (kind !== "practice" || starPending || item.starred) return
+    setStarPending(true)
     setActionError(null)
     setDeck((current) =>
       current
-        ? { ...current, cards: current.cards.map((entry) => (entry.id === item.id ? { ...entry, saved: true } : entry)) }
+        ? { ...current, cards: current.cards.map((entry) => (entry.id === item.id ? { ...entry, starred: true } : entry)) }
         : current,
     )
     try {
@@ -172,13 +180,13 @@ export function DeckSession({ id, kind }: { id: string; kind: "practice" | "revi
         current
           ? {
               ...current,
-              cards: current.cards.map((entry) => (entry.id === item.id ? { ...entry, saved: false } : entry)),
+              cards: current.cards.map((entry) => (entry.id === item.id ? { ...entry, starred: false } : entry)),
             }
           : current,
       )
-      setActionError(error instanceof Error ? error.message : "Couldn't save the sentence")
+      setActionError(error instanceof Error ? error.message : "Couldn't star the sentence")
     } finally {
-      setSavePending(false)
+      setStarPending(false)
     }
   }
 
@@ -186,7 +194,7 @@ export function DeckSession({ id, kind }: { id: string; kind: "practice" | "revi
   if (loadError || !deck || !card) {
     return <StatusBlock tone="hot">{loadError ?? "This session is empty"}</StatusBlock>
   }
-  if (finished) {
+  if (finished && view === "deck") {
     return (
       <ResultSheet
         deck={deck}
@@ -194,7 +202,7 @@ export function DeckSession({ id, kind }: { id: string; kind: "practice" | "revi
         phase={phase}
         soundError={soundError}
         onSpeak={(nextId) => void play(nextId)}
-        onSave={kind === "practice" ? (nextId) => void save(deck.cards.find((item) => item.id === nextId) ?? card) : undefined}
+        onStar={kind === "practice" ? (nextId) => void star(deck.cards.find((item) => item.id === nextId) ?? card) : undefined}
       />
     )
   }
@@ -206,9 +214,15 @@ export function DeckSession({ id, kind }: { id: string; kind: "practice" | "revi
 
   return (
     <main className="flex flex-1 flex-col">
-      <div className="mx-auto grid w-full max-w-6xl flex-1 lg:grid-cols-[240px_minmax(0,1fr)]">
-        <DeckRail groups={deck.groups} cards={deck.cards} currentId={card.id} />
-        <article className="flex min-h-[48vh] flex-col px-5 py-8 sm:px-8 lg:px-12">
+      <div
+        className={
+          view === "deck"
+            ? "mx-auto grid w-full max-w-6xl flex-1 lg:grid-cols-[240px_minmax(0,1fr)]"
+            : "mx-auto flex w-full max-w-3xl flex-1"
+        }
+      >
+        {view === "deck" ? <DeckRail groups={deck.groups} cards={deck.cards} currentId={card.id} /> : null}
+        <article className="flex min-h-[48vh] flex-1 flex-col px-5 py-8 sm:px-8 lg:px-12">
           <div className="flex items-baseline justify-between gap-4 font-mono text-[11px] tracking-[0.16em] text-muted uppercase">
             <p>
               {card.word} · {place}/{siblings.length}
@@ -245,14 +259,14 @@ export function DeckSession({ id, kind }: { id: string; kind: "practice" | "revi
         revealed={card.revealed}
         award={card.award}
         awardPending={awardPending}
-        saved={card.saved}
-        savePending={savePending}
+        starred={card.starred}
+        starPending={starPending}
         onPrev={() => move(deck.cursor - 1)}
         onNext={() => move(deck.cursor + 1)}
         onSpeak={() => void play(card.id)}
         onReveal={() => void toggleReveal(deck, card)}
         onAward={(points) => void award(card, points)}
-        onSave={kind === "practice" ? () => void save(card) : undefined}
+        onStar={kind === "practice" ? () => void star(card) : undefined}
         scoreLabel={kind === "review" ? "Add points to this sentence" : "Add points to this word"}
       />
     </main>

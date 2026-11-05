@@ -56,6 +56,30 @@ function readWord(value: unknown): VocWord {
   return { word: value.word, points: value.points }
 }
 
+export async function verifyVocPassword(): Promise<void> {
+  let response: Response
+  try {
+    response = await fetch(vocUrl("auth"), {
+      method: "GET",
+      headers: { Authentication: env().vocPassword },
+      cache: "no-store",
+      signal: AbortSignal.timeout(15_000),
+    })
+  } catch (error) {
+    if (error instanceof Error && error.name === "TimeoutError") {
+      throw new Error("Word list auth timed out")
+    }
+    throw new Error("Can't reach the word list")
+  }
+
+  const body: unknown = await response.json().catch(() => null)
+  if (response.ok && isRecord(body) && body.ok === true) return
+  if (response.status === 401 || (isRecord(body) && body.ok === false)) {
+    throw new Error("VOC_API_PASSWORD was rejected")
+  }
+  throw new Error(`Word list auth failed (${response.status})`)
+}
+
 export async function listLowest(count: number, points: number): Promise<VocWord[]> {
   const body = await vocFetch(vocUrl("voc", { count: String(count), points: String(points) }), "GET")
   if (!isRecord(body) || body.ok !== true || !Array.isArray(body.data)) {

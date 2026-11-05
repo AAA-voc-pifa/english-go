@@ -32,7 +32,8 @@ export function KeyButton({
       className={cn(
         "inline-flex h-10 items-center justify-center gap-2 border px-3 text-sm disabled:cursor-not-allowed disabled:opacity-40",
         tone === "lime" && "border-lime bg-lime font-medium text-lime-ink hover:bg-lime/90",
-        tone === "ghost" && "border-line bg-panel text-ink hover:border-ink/30",
+        tone === "ghost" &&
+          (pressed ? "border-lime bg-panel text-lime" : "border-line bg-panel text-ink hover:border-ink/30"),
         tone === "score" &&
           (pressed
             ? "border-lime bg-lime font-medium text-lime-ink"

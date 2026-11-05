@@ -15,7 +15,7 @@ function toDeck(doc: ReviewDoc, points: Map<string, number>): Deck {
     revealed: item.revealed,
     award: item.award,
     points: points.get(item.sentenceId.toHexString()) ?? 0,
-    saved: true,
+    starred: true,
   }))
   const last = Math.max(cards.length - 1, 0)
   return {
@@ -53,7 +53,7 @@ async function readDeck(doc: ReviewDoc): Promise<Deck> {
 export async function createReview(): Promise<Deck> {
   const { sentences, reviews } = await collections()
   const picked = await sentences.find({}, { sort: { points: 1, createdAt: 1 }, limit: REVIEW_SIZE }).toArray()
-  if (picked.length === 0) throw new ApiError("No saved sentences yet", 409)
+  if (picked.length === 0) throw new ApiError("No starred sentences yet", 409)
 
   const doc: ReviewDoc = {
     _id: new ObjectId(),

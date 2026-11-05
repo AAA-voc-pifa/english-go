@@ -2,14 +2,15 @@
 
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
+import { Star } from "lucide-react"
 import { KeyButton } from "@/components/key-button"
 import { Sentence } from "@/components/sentence"
 import { requestJson } from "@/lib/http"
-import type { DeckResponse, ReviewListResponse, SentenceListResponse, SavedSentence } from "@/lib/types"
+import type { DeckResponse, ReviewListResponse, SentenceListResponse, StarredSentence } from "@/lib/types"
 
 export default function SentencesPage() {
   const router = useRouter()
-  const [sentences, setSentences] = useState<SavedSentence[] | null>(null)
+  const [sentences, setSentences] = useState<StarredSentence[] | null>(null)
   const [openReviewId, setOpenReviewId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -49,7 +50,7 @@ export default function SentencesPage() {
     }
   }
 
-  async function remove(sentence: SavedSentence) {
+  async function remove(sentence: StarredSentence) {
     setError(null)
     const previous = sentences
     setSentences((current) => current?.filter((item) => item.id !== sentence.id) ?? current)
@@ -65,8 +66,8 @@ export default function SentencesPage() {
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-5 py-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="font-mono text-[11px] tracking-[0.2em] text-muted uppercase">Sentences</p>
-          <h1 className="mt-2 text-4xl tracking-tight">Saved sentences</h1>
+          <p className="font-mono text-[11px] tracking-[0.2em] text-muted uppercase">Favourites</p>
+          <h1 className="mt-2 text-4xl tracking-tight">Starred sentences</h1>
           <p className="mt-2 text-sm text-muted">Lowest score first. Sentence points start at zero.</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -91,13 +92,16 @@ export default function SentencesPage() {
           Loading…
         </p>
       ) : null}
-      {sentences?.length === 0 ? <p className="text-muted">Save a sentence during practice.</p> : null}
+      {sentences?.length === 0 ? <p className="text-muted">Star a sentence during practice.</p> : null}
 
       <ol className="divide-y divide-line border-y border-line">
         {sentences?.map((sentence) => (
           <li key={sentence.id} className="flex flex-col gap-2 py-4">
             <div className="flex items-baseline justify-between gap-3">
-              <span className="font-serif text-lg">{sentence.word}</span>
+              <span className="inline-flex items-center gap-2 font-serif text-lg">
+                <Star aria-hidden="true" className="size-4 fill-current text-lime" />
+                {sentence.word}
+              </span>
               <span className="font-mono text-xs text-muted tabular-nums">{sentence.points} pts</span>
             </div>
             <Sentence en={sentence.en} word={sentence.word} size="review" />

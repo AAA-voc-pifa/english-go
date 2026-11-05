@@ -2,9 +2,9 @@ import { ObjectId } from "mongodb"
 import { ApiError } from "@/lib/api-error"
 import { parseId } from "@/lib/practices"
 import { collections, type SentenceDoc } from "@/lib/store"
-import type { SavedSentence } from "@/lib/types"
+import type { StarredSentence } from "@/lib/types"
 
-function toSentence(doc: SentenceDoc): SavedSentence {
+function toSentence(doc: SentenceDoc): StarredSentence {
   return {
     id: doc._id.toHexString(),
     word: doc.word,
@@ -15,13 +15,13 @@ function toSentence(doc: SentenceDoc): SavedSentence {
   }
 }
 
-export async function listSentences(limit = 200): Promise<SavedSentence[]> {
+export async function listSentences(limit = 200): Promise<StarredSentence[]> {
   const { sentences } = await collections()
   const docs = await sentences.find({}, { sort: { points: 1, createdAt: 1 }, limit }).toArray()
   return docs.map(toSentence)
 }
 
-export async function savePracticeLine(lineId: string): Promise<SavedSentence> {
+export async function starPracticeLine(lineId: string): Promise<StarredSentence> {
   const { practiceLines, sentences } = await collections()
   const line = await practiceLines.findOne({ _id: parseId(lineId, "Sentence not found") })
   if (!line) throw new ApiError("Sentence not found", 404)

@@ -1,6 +1,6 @@
 import { route } from "@/lib/api-error"
 import { requirePassword } from "@/lib/auth"
-import { listSentences, savePracticeLine } from "@/lib/sentences"
+import { listSentences, starPracticeLine } from "@/lib/sentences"
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
@@ -17,7 +17,7 @@ export function POST(request: Request) {
     if (!isRecord(body) || typeof body.lineId !== "string") {
       return Response.json({ error: "Missing sentence" }, { status: 400 })
     }
-    const sentence = await savePracticeLine(body.lineId)
+    const sentence = await starPracticeLine(body.lineId)
     return Response.json({ sentence }, { status: 201 })
   })
 }

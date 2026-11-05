@@ -1,3 +1,4 @@
+import { Star } from "lucide-react"
 import { KeyButton } from "@/components/key-button"
 import { AWARD_LABEL, type Award } from "@/lib/types"
 
@@ -15,14 +16,14 @@ export function PracticeDock({
   revealed,
   award,
   awardPending,
-  saved,
-  savePending,
+  starred,
+  starPending,
   onPrev,
   onNext,
   onSpeak,
   onReveal,
   onAward,
-  onSave,
+  onStar,
   scoreLabel,
 }: {
   canPrev: boolean
@@ -32,14 +33,14 @@ export function PracticeDock({
   revealed: boolean
   award: Award | null
   awardPending: boolean
-  saved?: boolean
-  savePending?: boolean
+  starred?: boolean
+  starPending?: boolean
   onPrev: () => void
   onNext: () => void
   onSpeak: () => void
   onReveal: () => void
   onAward: (points: Award) => void
-  onSave?: () => void
+  onStar?: () => void
   scoreLabel: string
 }) {
   return (
@@ -58,9 +59,10 @@ export function PracticeDock({
         <KeyButton shortcut="r" onClick={onReveal} pressed={revealed}>
           {revealed ? "Hide" : "Translation"}
         </KeyButton>
-        {onSave ? (
-          <KeyButton shortcut="f" onClick={onSave} pressed={saved} disabled={savePending || saved}>
-            {saved ? "Saved" : savePending ? "Saving" : "Save"}
+        {onStar ? (
+          <KeyButton shortcut="f" onClick={onStar} pressed={starred} disabled={starPending || starred}>
+            <Star aria-hidden="true" className={starred ? "size-4 fill-current" : "size-4"} />
+            {starred ? "Starred" : starPending ? "Starring" : "Star"}
           </KeyButton>
         ) : null}
         <span className="mx-1 hidden h-6 w-px bg-line sm:block" aria-hidden="true" />

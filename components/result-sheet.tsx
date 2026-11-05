@@ -1,3 +1,4 @@
+import { Star } from "lucide-react"
 import { Sentence } from "@/components/sentence"
 import { speechLabel } from "@/hooks/use-line-audio"
 import { AWARD_LABEL, type Deck } from "@/lib/types"
@@ -8,14 +9,14 @@ export function ResultSheet({
   phase,
   soundError,
   onSpeak,
-  onSave,
+  onStar,
 }: {
   deck: Deck
   speechTarget: string | null
   phase: "idle" | "loading" | "playing"
   soundError: string | null
   onSpeak: (cardId: string) => void
-  onSave?: (cardId: string) => void
+  onStar?: (cardId: string) => void
 }) {
   const gained = deck.cards.reduce((sum, card) => sum + (card.award ?? 0), 0)
   return (
@@ -63,14 +64,16 @@ export function ResultSheet({
                 >
                   {speechLabel(card.id, speechTarget, phase)}
                 </button>
-                {onSave ? (
+                {onStar ? (
                   <button
                     type="button"
-                    onClick={() => onSave(card.id)}
-                    disabled={card.saved}
-                    className="inline-flex h-8 items-center border border-line bg-panel px-3 text-xs text-ink disabled:cursor-not-allowed disabled:opacity-40"
+                    onClick={() => onStar(card.id)}
+                    disabled={card.starred}
+                    aria-pressed={card.starred}
+                    className="inline-flex h-8 items-center gap-1.5 border border-line bg-panel px-3 text-xs text-ink disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    {card.saved ? "Saved" : "Save"}
+                    <Star aria-hidden="true" className={card.starred ? "size-3.5 fill-current text-lime" : "size-3.5"} />
+                    {card.starred ? "Starred" : "Star"}
                   </button>
                 ) : null}
               </div>

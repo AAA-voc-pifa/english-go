@@ -62,12 +62,12 @@ export default function HistoryPage() {
       ) : null}
       {practices?.length === 0 ? <p className="text-muted">No practices yet.</p> : null}
 
-      <ul className="divide-y divide-line border-y border-line">
+      <ul className="-mx-4 divide-y divide-line border-y border-line">
         {practices?.map((practice) => {
           const done = practice.total > 0 && practice.answered === practice.total
           return (
             <li key={practice.id}>
-              <Link href={`/practice/${practice.id}`} className="block py-4 transition-colors hover:bg-panel">
+              <Link href={`/practice/${practice.id}`} className="block px-4 py-4 transition-colors hover:bg-panel">
                 <div className="flex items-baseline justify-between gap-4">
                   <p className="font-serif text-xl">{practice.words.map((item) => item.word).join(" · ")}</p>
                   <time dateTime={practice.createdAt} className="shrink-0 font-mono text-xs text-muted">
