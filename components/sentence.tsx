@@ -1,8 +1,10 @@
 const WORD_PATTERN = /[.*+?^${}()|[\]\\]/g
 
 function splitSentence(sentence: string, word: string): Array<{ text: string; hit: boolean }> {
-  const escaped = word.replace(WORD_PATTERN, "\\$&")
-  const pattern = new RegExp(`(?<![A-Za-z])(${escaped})(?![A-Za-z])`, "gi")
+  const needle = word.trim()
+  if (!needle) return [{ text: sentence, hit: false }]
+  const escaped = needle.replace(WORD_PATTERN, "\\$&")
+  const pattern = new RegExp(`[A-Za-z]*${escaped}[A-Za-z]*`, "gi")
   const parts: Array<{ text: string; hit: boolean }> = []
   let last = 0
   for (const match of sentence.matchAll(pattern)) {
@@ -31,8 +33,8 @@ export function Sentence({
       lang="en"
       className={
         size === "review"
-          ? "font-serif text-lg leading-snug text-ink"
-          : "font-serif text-[1.85rem] leading-[1.25] tracking-tight text-ink sm:text-5xl sm:leading-[1.15]"
+          ? "font-serif text-lg leading-snug wrap-break-word text-ink"
+          : "font-serif text-[1.85rem] leading-[1.25] tracking-tight wrap-break-word text-ink sm:text-5xl sm:leading-[1.15]"
       }
     >
       {parts.map((part, index) =>
