@@ -40,10 +40,10 @@ export default function HistoryPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-5 py-8">
-      <div className="flex items-end justify-between gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="font-mono text-[11px] tracking-[0.2em] text-muted uppercase">History</p>
-          <h1 className="mt-2 text-4xl tracking-tight">Past practices</h1>
+          <h1 className="mt-2 text-3xl tracking-tight sm:text-4xl">Past practices</h1>
         </div>
         <KeyButton shortcut="b" onClick={() => router.push("/")}>
           Back
@@ -69,7 +69,7 @@ export default function HistoryPage() {
             <li key={practice.id}>
               <Link href={`/practice/${practice.id}`} className="block px-4 py-4 transition-colors hover:bg-panel">
                 <div className="flex items-baseline justify-between gap-4">
-                  <p className="font-serif text-xl">{practice.words.map((item) => item.word).join(" · ")}</p>
+                  <p className="min-w-0 font-serif text-lg sm:text-xl">{practice.words.map((item) => item.word).join(" · ")}</p>
                   <time dateTime={practice.createdAt} className="shrink-0 font-mono text-xs text-muted">
                     {formatWhen(practice.createdAt)}
                   </time>

@@ -105,7 +105,7 @@ export default function SettingsPage() {
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-5 py-8">
       <div>
         <p className="font-mono text-[11px] tracking-[0.2em] text-muted uppercase">Settings</p>
-        <h1 className="mt-2 text-4xl tracking-tight">Speech and password</h1>
+        <h1 className="mt-2 text-3xl tracking-tight sm:text-4xl">Speech and password</h1>
       </div>
 
       <div className="flex flex-col gap-3">
@@ -118,7 +118,7 @@ export default function SettingsPage() {
             spellCheck={false}
             value={password}
             onChange={(event) => setDraft(event.target.value)}
-            className="h-10 rounded-md border border-line bg-panel px-3 text-sm text-ink"
+            className="h-11 rounded-md border border-line bg-panel px-3 text-base text-ink sm:h-10 sm:text-sm"
           />
         </label>
         <div className="flex flex-wrap items-center gap-3">
@@ -168,7 +168,7 @@ export default function SettingsPage() {
                 setRate(event.target.value as RateId)
                 setSaved(false)
               }}
-              className="h-10 rounded-md border border-line bg-bg px-3 text-sm text-ink"
+              className="h-11 rounded-md border border-line bg-bg px-3 text-base text-ink sm:h-10 sm:text-sm"
             >
               {RATES.map((item) => (
                 <option key={item.id} value={item.id}>

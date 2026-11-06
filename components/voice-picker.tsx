@@ -111,7 +111,7 @@ export function VoicePicker({
               setLanguage(event.target.value)
               setLocale("all")
             }}
-            className="h-10 rounded-md border border-line bg-bg px-3 text-sm text-ink"
+            className="h-11 rounded-md border border-line bg-bg px-3 text-base text-ink sm:h-10 sm:text-sm"
           >
             {languages.map((item) => (
               <option key={item} value={item}>
@@ -126,7 +126,7 @@ export function VoicePicker({
             value={effectiveLocale}
             disabled={disabled || !voices}
             onChange={(event) => setLocale(event.target.value)}
-            className="h-10 rounded-md border border-line bg-bg px-3 text-sm text-ink"
+            className="h-11 rounded-md border border-line bg-bg px-3 text-base text-ink sm:h-10 sm:text-sm"
           >
             <option value="all">All</option>
             {locales.map((item) => (
@@ -142,7 +142,7 @@ export function VoicePicker({
             value={gender}
             disabled={disabled || !voices}
             onChange={(event) => setGender(event.target.value)}
-            className="h-10 rounded-md border border-line bg-bg px-3 text-sm text-ink"
+            className="h-11 rounded-md border border-line bg-bg px-3 text-base text-ink sm:h-10 sm:text-sm"
           >
             <option value="all">All</option>
             <option value="Female">Female</option>
@@ -159,7 +159,7 @@ export function VoicePicker({
           disabled={disabled || !voices}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Aria / en-GB / Natasha"
-          className="h-10 rounded-md border border-line bg-bg px-3 text-sm text-ink"
+          className="h-11 rounded-md border border-line bg-bg px-3 text-base text-ink sm:h-10 sm:text-sm"
         />
       </label>
 

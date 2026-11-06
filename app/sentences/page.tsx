@@ -67,7 +67,7 @@ export default function SentencesPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="font-mono text-[11px] tracking-[0.2em] text-muted uppercase">Favourites</p>
-          <h1 className="mt-2 text-4xl tracking-tight">Starred sentences</h1>
+          <h1 className="mt-2 text-3xl tracking-tight sm:text-4xl">Starred sentences</h1>
           <p className="mt-2 text-sm text-muted">Lowest score first. Sentence points start at zero.</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -111,7 +111,7 @@ export default function SentencesPage() {
             <button
               type="button"
               onClick={() => void remove(sentence)}
-              className="inline-flex h-8 items-center self-start border border-line bg-panel px-3 text-xs text-ink"
+              className="inline-flex h-10 items-center self-start border border-line bg-panel px-3 text-sm text-ink"
             >
               Remove
             </button>

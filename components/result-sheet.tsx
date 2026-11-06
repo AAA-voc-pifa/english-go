@@ -60,7 +60,7 @@ export function ResultSheet({
                   type="button"
                   onClick={() => onSpeak(card.id)}
                   disabled={phase === "loading" && speechTarget === card.id}
-                  className="inline-flex h-8 items-center border border-line bg-panel px-3 text-xs text-ink disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex h-10 items-center border border-line bg-panel px-3 text-sm text-ink disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {speechLabel(card.id, speechTarget, phase)}
                 </button>
@@ -70,7 +70,7 @@ export function ResultSheet({
                     onClick={() => onStar(card.id)}
                     disabled={card.starred}
                     aria-pressed={card.starred}
-                    className="inline-flex h-8 items-center gap-1.5 border border-line bg-panel px-3 text-xs text-ink disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex h-10 items-center gap-1.5 border border-line bg-panel px-3 text-sm text-ink disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Star aria-hidden="true" className={card.starred ? "size-3.5 fill-current text-lime" : "size-3.5"} />
                     {card.starred ? "Starred" : "Star"}

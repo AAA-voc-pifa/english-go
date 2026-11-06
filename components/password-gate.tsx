@@ -62,7 +62,7 @@ function PasswordPrompt() {
           spellCheck={false}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          className="h-10 rounded-md border border-line bg-panel px-3 text-sm text-ink"
+          className="h-11 rounded-md border border-line bg-panel px-3 text-base text-ink sm:h-10 sm:text-sm"
         />
         <div className="flex items-center gap-3">
           <button

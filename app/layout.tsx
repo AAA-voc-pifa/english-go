@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Newsreader } from "next/font/google";
 import { PasswordGate } from "@/components/password-gate";
 import { ShortcutProvider } from "@/components/shortcuts";
@@ -23,6 +23,12 @@ const newsreader = Newsreader({
 export const metadata: Metadata = {
   title: "English Go",
   description: "Translation practice with the lowest-point words",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#101311",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

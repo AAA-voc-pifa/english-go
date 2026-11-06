@@ -296,9 +296,9 @@ export function DeckSession({
 
   return (
     <main className="flex flex-1 flex-col">
-      <div className="mx-auto grid w-full max-w-6xl flex-1 lg:grid-cols-[240px_minmax(0,1fr)]">
+      <div className="mx-auto grid w-full max-w-6xl flex-1 content-start lg:grid-cols-[240px_minmax(0,1fr)] lg:content-stretch">
         <DeckRail groups={deck.groups} cards={deck.cards} currentId={card.id} />
-        <article className="flex min-h-[48vh] flex-1 flex-col px-5 py-8 sm:px-8 lg:px-12">
+        <article className="flex min-h-0 flex-1 flex-col px-4 py-6 sm:min-h-[48vh] sm:px-8 sm:py-8 lg:px-12">
           <div className="flex items-baseline justify-between gap-4 font-mono text-[11px] tracking-[0.16em] text-muted uppercase">
             <p>
               {card.word} · {place}/{siblings.length}
@@ -353,7 +353,7 @@ function ScoreNotice({ message }: { message: string }) {
   return (
     <p
       role="alert"
-      className="fixed bottom-24 left-1/2 z-30 w-[min(24rem,calc(100%-2rem))] -translate-x-1/2 border border-line bg-panel px-4 py-3 text-sm text-hot"
+      className="fixed bottom-36 left-1/2 z-30 w-[min(24rem,calc(100%-1.5rem))] -translate-x-1/2 border border-line bg-panel px-4 py-3 text-sm text-hot sm:bottom-24"
     >
       {message}
     </p>
