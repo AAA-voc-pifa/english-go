@@ -20,7 +20,7 @@ export function ShortcutProvider({ children }: { children: React.ReactNode }) {
     function onKeyDown(event: KeyboardEvent) {
       if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return
       if (event.repeat || event.isComposing || event.key === "Process") return
-      if (document.querySelector("[data-password-lock]")) return
+      if (document.querySelector("[data-password-lock], [role='dialog']")) return
       if (isTyping(event.target)) return
       if (event.key.length !== 1) return
       const handler = handlers.current.get(event.key.toLowerCase())

@@ -1,11 +1,9 @@
 "use client"
 
 import { Plus } from "lucide-react"
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useSyncExternalStore } from "react"
 import { KeyButton } from "@/components/key-button"
-import { requestJson } from "@/lib/http"
-import type { DeckResponse } from "@/lib/types"
+import { idlePracticeJob, readPracticeJob, startPractice, subscribePracticeJob } from "@/lib/practice-job"
 
 export function NewRoundButton({
   label,
@@ -18,41 +16,19 @@ export function NewRoundButton({
   shortcut?: string
   compact?: boolean
 }) {
-  const router = useRouter()
-  const [pending, setPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function create() {
-    if (pending) return
-    setPending(true)
-    setError(null)
-    try {
-      const data = await requestJson<DeckResponse>("/api/practices", { method: "POST" })
-      router.push(`/practice/${data.deck.id}`)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Couldn't write the sentences")
-    } finally {
-      setPending(false)
-    }
-  }
+  const job = useSyncExternalStore(subscribePracticeJob, readPracticeJob, idlePracticeJob)
+  const held = job.status === "pending" || job.status === "ready"
 
   return (
-    <div className="flex flex-col items-start gap-2">
-      <KeyButton
-        shortcut={shortcut}
-        onClick={() => void create()}
-        disabled={pending}
-        tone={tone}
-        className={compact ? "h-10 w-10 px-0 sm:w-auto sm:px-3" : undefined}
-      >
-        {compact ? <Plus aria-hidden="true" className="size-4 sm:hidden" /> : null}
-        <span className={compact ? "max-sm:sr-only" : undefined}>{pending ? "Writing" : label}</span>
-      </KeyButton>
-      {error ? (
-        <p role="alert" className="max-w-xs text-sm leading-6 text-hot">
-          {error}
-        </p>
-      ) : null}
-    </div>
+    <KeyButton
+      shortcut={shortcut}
+      onClick={startPractice}
+      disabled={held}
+      tone={tone}
+      className={compact ? "h-10 w-10 px-0 sm:w-auto sm:px-3" : undefined}
+    >
+      {compact ? <Plus aria-hidden="true" className="size-4 sm:hidden" /> : null}
+      <span className={compact ? "max-sm:sr-only" : undefined}>{job.status === "pending" ? "Writing" : label}</span>
+    </KeyButton>
   )
 }

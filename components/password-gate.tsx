@@ -2,6 +2,7 @@
 
 import { useState, useSyncExternalStore, type FormEvent } from "react"
 import { AppHeader } from "@/components/app-header"
+import { PracticeReadyDialog } from "@/components/practice-ready"
 import { passwordHeaders, readPassword, subscribePassword, writePassword } from "@/lib/client-auth"
 import { requestJson } from "@/lib/http"
 
@@ -14,6 +15,7 @@ export function PasswordGate({ children }: { children: React.ReactNode }) {
   return (
     <>
       {stored ? <AppHeader /> : null}
+      {stored ? <PracticeReadyDialog /> : null}
       {children}
       {stored ? null : <PasswordCover mode={stored === null ? "loading" : "prompt"} />}
     </>
