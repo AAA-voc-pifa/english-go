@@ -2,6 +2,7 @@ import { ApiError } from "@/lib/api-error"
 
 function required(name: string): string {
   const value = process.env[name]?.trim()
+  console.log('env', name, value)
   if (!value) throw new ApiError(`Missing ${name}`, 500)
   return value
 }
