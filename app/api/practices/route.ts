@@ -4,8 +4,9 @@ import { createPractice, listPractices } from "@/lib/practices"
 
 export const maxDuration = 120
 
-export function GET() {
+export function GET(request: Request) {
   return route(async () => {
+    requirePassword(request)
     const practices = await listPractices()
     return Response.json({ practices })
   })

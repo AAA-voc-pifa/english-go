@@ -1,12 +1,14 @@
 import { route } from "@/lib/api-error"
+import { requirePassword } from "@/lib/auth"
 import { getSettings, updateSettings } from "@/lib/settings"
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
 }
 
-export function GET() {
+export function GET(request: Request) {
   return route(async () => {
+    requirePassword(request)
     const settings = await getSettings()
     return Response.json({ settings })
   })
@@ -14,6 +16,7 @@ export function GET() {
 
 export function PATCH(request: Request) {
   return route(async () => {
+    requirePassword(request)
     const body: unknown = await request.json().catch(() => null)
     if (!isRecord(body)) {
       return Response.json({ error: "Bad request" }, { status: 400 })

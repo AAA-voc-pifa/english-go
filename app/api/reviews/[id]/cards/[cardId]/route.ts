@@ -10,6 +10,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function PATCH(request: Request, context: Context) {
   return route(async () => {
+    requirePassword(request)
     const { id, cardId } = await context.params
     const body: unknown = await request.json().catch(() => null)
     if (!isRecord(body)) return Response.json({ error: "Bad request" }, { status: 400 })
@@ -19,7 +20,6 @@ export function PATCH(request: Request, context: Context) {
     }
 
     if (typeof body.award === "number") {
-      requirePassword(request)
       return Response.json({ deck: await awardReviewCard(id, cardId, body.award) })
     }
 
