@@ -7,12 +7,48 @@ type Phase = "idle" | "loading" | "playing"
 type SpeechAudio = HTMLAudioElement & { objectUrl?: string }
 
 let activeAudio: SpeechAudio | null = null
+let speechKey = ""
+const clips = new Map<string, Promise<Blob>>()
 
 function stopActive() {
   if (!activeAudio) return
   activeAudio.pause()
   if (activeAudio.objectUrl) URL.revokeObjectURL(activeAudio.objectUrl)
   activeAudio = null
+}
+
+export function setSpeechCacheKey(key: string) {
+  if (key === speechKey) return
+  speechKey = key
+  clips.clear()
+}
+
+async function fetchClip(lineId: string): Promise<Blob> {
+  const response = await fetch(`/api/speak?card=${encodeURIComponent(lineId)}`, {
+    headers: passwordHeaders(),
+  })
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { error?: unknown } | null
+    const message = payload && typeof payload.error === "string" ? payload.error : "Couldn't read this sentence"
+    throw new Error(message)
+  }
+  return response.blob()
+}
+
+function loadClip(lineId: string): Promise<Blob> {
+  const id = `${speechKey}:${lineId}`
+  const cached = clips.get(id)
+  if (cached) return cached
+  const pending = fetchClip(lineId).catch((error: unknown) => {
+    clips.delete(id)
+    throw error
+  })
+  clips.set(id, pending)
+  return pending
+}
+
+export function prefetchLine(lineId: string) {
+  void loadClip(lineId).catch(() => undefined)
 }
 
 export function speechLabel(lineId: string, target: string | null, phase: Phase): string {
@@ -51,16 +87,9 @@ export function useLineAudio() {
     setError(null)
 
     try {
-      const response = await fetch(`/api/speak?card=${encodeURIComponent(lineId)}`, {
-        headers: passwordHeaders(),
-      })
+      const blob = await loadClip(lineId)
       if (token.current !== next) return
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as { error?: unknown } | null
-        const message = payload && typeof payload.error === "string" ? payload.error : "Couldn't read this sentence"
-        throw new Error(message)
-      }
-      const objectUrl = URL.createObjectURL(await response.blob())
+      const objectUrl = URL.createObjectURL(blob)
       if (token.current !== next) {
         URL.revokeObjectURL(objectUrl)
         return

@@ -15,7 +15,6 @@ export function PracticeDock({
   speechPending,
   revealed,
   award,
-  awardPending,
   starred,
   starPending,
   onPrev,
@@ -32,7 +31,6 @@ export function PracticeDock({
   speechPending: boolean
   revealed: boolean
   award: Award | null
-  awardPending: boolean
   starred?: boolean
   starPending?: boolean
   onPrev: () => void
@@ -73,7 +71,7 @@ export function PracticeDock({
               shortcut={item.shortcut}
               tone="score"
               pressed={award === item.points}
-              disabled={awardPending || (award !== null && award !== item.points)}
+              disabled={award !== null && award !== item.points}
               onClick={() => onAward(item.points)}
             >
               <span className="tabular-nums">+{item.points}</span>

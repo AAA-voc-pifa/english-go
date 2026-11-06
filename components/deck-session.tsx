@@ -6,7 +6,7 @@ import { PracticeDock } from "@/components/practice-dock"
 import { ResultSheet } from "@/components/result-sheet"
 import { Sentence } from "@/components/sentence"
 import { StatusBlock } from "@/components/status-block"
-import { speechLabel, useLineAudio } from "@/hooks/use-line-audio"
+import { prefetchLine, setSpeechCacheKey, speechLabel, useLineAudio } from "@/hooks/use-line-audio"
 import { requestJson } from "@/lib/http"
 import type { AppSettings, Award, Deck, DeckCard, DeckResponse, SettingsResponse } from "@/lib/types"
 
@@ -15,12 +15,38 @@ function keepCursor(current: Deck | null, next: Deck): Deck {
   return { ...next, cursor: current.cursor }
 }
 
-function advanceAfterAward(current: Deck | null, incoming: Deck, cardId: string): Deck {
-  const merged = keepCursor(current, incoming)
-  const showing = merged.cards[merged.cursor]
-  if (!showing || showing.id !== cardId || showing.award === null) return merged
-  if (merged.cursor >= merged.cards.length - 1) return merged
-  return { ...merged, cursor: merged.cursor + 1 }
+function mergeAwards(current: Deck, incoming: Deck): Deck {
+  if (current.id !== incoming.id) return incoming
+  const local = new Map(current.cards.map((card) => [card.id, card]))
+  return {
+    ...incoming,
+    cards: incoming.cards.map((card) => {
+      const previous = local.get(card.id)
+      if (!previous) return card
+      return {
+        ...card,
+        award: previous.award ?? card.award,
+        starred: previous.starred || card.starred,
+      }
+    }),
+  }
+}
+
+function takeScores(current: Deck, incoming: Deck): Deck {
+  if (current.id !== incoming.id) return current
+  const cardPoints = new Map(incoming.cards.map((card) => [card.id, card.points]))
+  const groupPoints = new Map(incoming.groups.map((group) => [group.key, group.points]))
+  return {
+    ...current,
+    groups: current.groups.map((group) => ({
+      ...group,
+      points: groupPoints.get(group.key) ?? group.points,
+    })),
+    cards: current.cards.map((card) => ({
+      ...card,
+      points: cardPoints.get(card.id) ?? card.points,
+    })),
+  }
 }
 
 function isFinished(deck: Deck): boolean {
@@ -48,9 +74,10 @@ export function DeckSession({
   const [loadError, setLoadError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [awardPending, setAwardPending] = useState(false)
   const [starPending, setStarPending] = useState(false)
+  const [notice, setNotice] = useState<{ id: number; message: string } | null>(null)
   const savedCursor = useRef<number | null>(null)
+  const scoring = useRef(new Set<string>())
   const { target, phase, error: soundError, play, stop, dismissError } = useLineAudio()
 
   useEffect(() => {
@@ -93,6 +120,18 @@ export function DeckSession({
   const card = deck?.cards[deck.cursor] ?? null
   const finished = deck ? isFinished(deck) : false
   const cardId = card?.id
+  const nextId = deck && view !== "sentence" && !finished ? (deck.cards[deck.cursor + 1]?.id ?? null) : null
+
+  useEffect(() => {
+    if (!settings) return
+    setSpeechCacheKey(`${settings.voice}|${settings.rate}`)
+  }, [settings])
+
+  useEffect(() => {
+    if (!notice) return
+    const timer = window.setTimeout(() => setNotice(null), 5000)
+    return () => window.clearTimeout(timer)
+  }, [notice])
 
   useEffect(() => {
     return () => {
@@ -101,14 +140,19 @@ export function DeckSession({
   }, [finished, cardId, stop])
 
   useEffect(() => {
-    if (!cardId || !settings?.autoSpeak || finished) return
+    if (view === "sentence" || !cardId || !settings?.autoSpeak || finished) return
     const timer = window.setTimeout(() => {
       void play(cardId)
     }, 0)
     return () => {
       window.clearTimeout(timer)
     }
-  }, [cardId, finished, play, settings?.autoSpeak])
+  }, [cardId, finished, play, settings?.autoSpeak, view])
+
+  useEffect(() => {
+    if (!nextId || !settings) return
+    prefetchLine(nextId)
+  }, [nextId, settings])
 
   function move(nextCursor: number) {
     stop()
@@ -137,28 +181,52 @@ export function DeckSession({
         method: "PATCH",
         body: JSON.stringify({ revealed }),
       })
-      setDeck((latest) => keepCursor(latest, data.deck))
+      setDeck((latest) => (latest ? keepCursor(latest, mergeAwards(latest, data.deck)) : latest))
     } catch (error) {
       setDeck(current)
       setActionError(error instanceof Error ? error.message : "Couldn't save the translation")
     }
   }
 
-  async function award(item: DeckCard, points: Award) {
-    if (awardPending || item.award !== null) return
-    setAwardPending(true)
+  function award(item: DeckCard, points: Award) {
+    if (item.award !== null || scoring.current.has(item.id)) return
+    scoring.current.add(item.id)
     setActionError(null)
-    try {
-      const data = await requestJson<DeckResponse>(endpoint(kind, id, item.id), {
-        method: "PATCH",
-        body: JSON.stringify({ award: points }),
+    setDeck((current) => {
+      if (!current) return current
+      const cards = current.cards.map((entry) => (entry.id === item.id ? { ...entry, award: points } : entry))
+      const cursor =
+        current.cards[current.cursor]?.id === item.id && current.cursor < cards.length - 1
+          ? current.cursor + 1
+          : current.cursor
+      return { ...current, cards, cursor }
+    })
+    void requestJson<DeckResponse>(endpoint(kind, id, item.id), {
+      method: "PATCH",
+      body: JSON.stringify({ award: points }),
+    })
+      .then((data) => {
+        setDeck((latest) => (latest ? takeScores(latest, data.deck) : latest))
       })
-      setDeck((latest) => advanceAfterAward(latest, data.deck, item.id))
-    } catch (error) {
-      setActionError(error instanceof Error ? error.message : "Couldn't add points")
-    } finally {
-      setAwardPending(false)
-    }
+      .catch((error: unknown) => {
+        setDeck((current) =>
+          current
+            ? {
+                ...current,
+                cards: current.cards.map((entry) =>
+                  entry.id === item.id && entry.award === points ? { ...entry, award: null } : entry,
+                ),
+              }
+            : current,
+        )
+        setNotice({
+          id: Date.now(),
+          message: error instanceof Error ? error.message : "Couldn't save the score",
+        })
+      })
+      .finally(() => {
+        scoring.current.delete(item.id)
+      })
   }
 
   async function star(item: DeckCard) {
@@ -194,16 +262,30 @@ export function DeckSession({
   if (loadError || !deck || !card) {
     return <StatusBlock tone="hot">{loadError ?? "This session is empty"}</StatusBlock>
   }
-  if (finished && view === "deck") {
+  if (view === "sentence") {
     return (
-      <ResultSheet
-        deck={deck}
-        speechTarget={target}
-        phase={phase}
-        soundError={soundError}
-        onSpeak={(nextId) => void play(nextId)}
-        onStar={kind === "practice" ? (nextId) => void star(deck.cards.find((item) => item.id === nextId) ?? card) : undefined}
-      />
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-5 py-16">
+        <Sentence en={card.en} word={card.word} />
+        <p lang="zh-CN" className="mt-6 max-w-2xl text-sm leading-6 text-muted">
+          {card.zh}
+        </p>
+      </main>
+    )
+  }
+
+  if (finished) {
+    return (
+      <>
+        <ResultSheet
+          deck={deck}
+          speechTarget={target}
+          phase={phase}
+          soundError={soundError}
+          onSpeak={(lineId) => void play(lineId)}
+          onStar={kind === "practice" ? (lineId) => void star(deck.cards.find((item) => item.id === lineId) ?? card) : undefined}
+        />
+        {notice ? <ScoreNotice message={notice.message} /> : null}
+      </>
     )
   }
 
@@ -214,14 +296,8 @@ export function DeckSession({
 
   return (
     <main className="flex flex-1 flex-col">
-      <div
-        className={
-          view === "deck"
-            ? "mx-auto grid w-full max-w-6xl flex-1 lg:grid-cols-[240px_minmax(0,1fr)]"
-            : "mx-auto flex w-full max-w-3xl flex-1"
-        }
-      >
-        {view === "deck" ? <DeckRail groups={deck.groups} cards={deck.cards} currentId={card.id} /> : null}
+      <div className="mx-auto grid w-full max-w-6xl flex-1 lg:grid-cols-[240px_minmax(0,1fr)]">
+        <DeckRail groups={deck.groups} cards={deck.cards} currentId={card.id} />
         <article className="flex min-h-[48vh] flex-1 flex-col px-5 py-8 sm:px-8 lg:px-12">
           <div className="flex items-baseline justify-between gap-4 font-mono text-[11px] tracking-[0.16em] text-muted uppercase">
             <p>
@@ -258,7 +334,6 @@ export function DeckSession({
         speechPending={phase === "loading"}
         revealed={card.revealed}
         award={card.award}
-        awardPending={awardPending}
         starred={card.starred}
         starPending={starPending}
         onPrev={() => move(deck.cursor - 1)}
@@ -269,6 +344,18 @@ export function DeckSession({
         onStar={kind === "practice" ? () => void star(card) : undefined}
         scoreLabel={kind === "review" ? "Add points to this sentence" : "Add points to this word"}
       />
+      {notice ? <ScoreNotice message={notice.message} /> : null}
     </main>
+  )
+}
+
+function ScoreNotice({ message }: { message: string }) {
+  return (
+    <p
+      role="alert"
+      className="fixed bottom-24 left-1/2 z-30 w-[min(24rem,calc(100%-2rem))] -translate-x-1/2 border border-line bg-panel px-4 py-3 text-sm text-hot"
+    >
+      {message}
+    </p>
   )
 }
