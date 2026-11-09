@@ -6,6 +6,11 @@ type VocWord = {
   points: number
 }
 
+export type VocWordDetail = VocWord & {
+  addedAt: string
+  updatedAt: string
+}
+
 function vocUrl(path: string, query?: Record<string, string>): URL {
   const url = new URL(path.replace(/^\//, ""), `${env().vocBase}/`)
   if (query) {
@@ -56,6 +61,14 @@ function readWord(value: unknown): VocWord {
   return { word: value.word, points: value.points }
 }
 
+function readWordDetail(value: unknown): VocWordDetail {
+  const word = readWord(value)
+  if (!isRecord(value) || typeof value.add_at !== "string" || typeof value.update_at !== "string") {
+    throw new ApiError("The word list response was unreadable", 502)
+  }
+  return { ...word, addedAt: value.add_at, updatedAt: value.update_at }
+}
+
 export async function verifyVocPassword(): Promise<void> {
   let response: Response
   try {
@@ -86,6 +99,14 @@ export async function listLowest(count: number, points: number): Promise<VocWord
     throw new ApiError("The word list response was unreadable", 502)
   }
   return body.data.map(readWord)
+}
+
+export async function listAllWords(): Promise<VocWordDetail[]> {
+  const body = await vocFetch(vocUrl("voc/all"), "GET")
+  if (!isRecord(body) || body.ok !== true || !Array.isArray(body.data)) {
+    throw new ApiError("The word list response was unreadable", 502)
+  }
+  return body.data.map(readWordDetail)
 }
 
 export async function getWordPoints(word: string): Promise<number> {

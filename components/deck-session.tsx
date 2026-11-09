@@ -118,7 +118,7 @@ export function DeckSession({
   const card = deck?.cards[deck.cursor] ?? null
   const finished = deck ? isFinished(deck) : false
   const cardId = card?.id
-  const nextId = deck && view !== "sentence" && !finished ? (deck.cards[deck.cursor + 1]?.id ?? null) : null
+  const nextId = deck && !finished ? (deck.cards[deck.cursor + 1]?.id ?? null) : null
 
   useEffect(() => {
     if (!settings) return

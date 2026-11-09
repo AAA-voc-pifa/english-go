@@ -1,6 +1,6 @@
 "use client"
 
-import { History, Settings, Star } from "lucide-react"
+import { ChartColumn, History, Settings, Star } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { NewRoundButton } from "@/components/new-round-button"
@@ -12,6 +12,7 @@ export function AppHeader() {
   const pathname = usePathname()
   useShortcut("h", () => router.push("/history"))
   useShortcut("c", () => router.push("/sentences"))
+  useShortcut("t", () => router.push("/stats"))
 
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-bg/90 backdrop-blur">
@@ -49,6 +50,21 @@ export function AppHeader() {
             <span className="max-sm:sr-only">Favourites</span>
             <kbd className="hidden h-5 min-w-5 place-items-center border border-current/30 px-1 font-mono text-[10px] leading-none sm:inline-grid">
               C
+            </kbd>
+          </Link>
+          <Link
+            href="/stats"
+            aria-current={pathname === "/stats" ? "page" : undefined}
+            aria-keyshortcuts="T"
+            className={cn(
+              "inline-flex h-10 w-10 items-center justify-center gap-2 border border-line bg-panel text-sm sm:w-auto sm:px-3",
+              pathname === "/stats" ? "border-lime text-lime" : "text-ink",
+            )}
+          >
+            <ChartColumn aria-hidden="true" className="size-4" />
+            <span className="max-sm:sr-only">Stats</span>
+            <kbd className="hidden h-5 min-w-5 place-items-center border border-current/30 px-1 font-mono text-[10px] leading-none sm:inline-grid">
+              T
             </kbd>
           </Link>
           <Link
