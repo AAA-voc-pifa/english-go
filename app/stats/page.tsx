@@ -79,7 +79,9 @@ export default function StatsPage() {
         <div>
           <p className="font-mono text-[11px] tracking-[0.2em] text-muted uppercase">Stats</p>
           <h1 className="mt-2 text-3xl tracking-tight sm:text-4xl">Progress</h1>
-          <p className="mt-2 max-w-xl text-sm text-muted">Word bank from my-voc, plus practice and favourites here.</p>
+          <p className="mt-2 max-w-xl text-sm text-muted">
+            Word scores come from my-voc. Favourite scores are sentence points from review.
+          </p>
         </div>
         <KeyButton shortcut="b" onClick={() => router.push("/")}>
           Back
@@ -100,16 +102,20 @@ export default function StatsPage() {
       {stats ? (
         <>
           <section className="grid gap-8 border-y border-line py-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-10">
-            <Stat label="Words" value={stats.words.total} hint={`avg ${stats.words.average} · median ${stats.words.median}`} />
+            <Stat
+              label="Words"
+              value={stats.words.total}
+              hint={`avg ${stats.words.average} · median ${stats.words.median} word pts`}
+            />
             <Stat
               label="Practices"
               value={stats.practices.total}
-              hint={`${stats.practices.completed} finished · +${stats.practices.pointsEarned} pts`}
+              hint={`${stats.practices.completed} finished · +${stats.practices.pointsEarned} word pts`}
             />
             <Stat
               label="Favourites"
               value={stats.favourites.total}
-              hint={`avg ${stats.favourites.average} · ${stats.favourites.unscored} still at 0`}
+              hint={`avg ${stats.favourites.average} sentence pts · ${stats.favourites.unscored} still at 0`}
             />
             <Stat
               label="Reviews"
@@ -133,9 +139,7 @@ export default function StatsPage() {
                     <div className="h-2 bg-line">
                       <div
                         className="h-full bg-lime"
-                        style={{
-                          width: bucket.count === 0 ? "0%" : `${Math.max(4, (bucket.count / maxBucket) * 100)}%`,
-                        }}
+                        style={{ width: `${(bucket.count / maxBucket) * 100}%` }}
                       />
                     </div>
                     <span className="text-right font-mono text-xs tabular-nums">{bucket.count}</span>
@@ -151,15 +155,18 @@ export default function StatsPage() {
               </p>
               <p>{stats.reviews.sentencesScored} favourite sentences scored in review</p>
               <p className="mt-4">
-                +{stats.practices.pointsEarned} word points earned across {stats.practices.completed} finished practices
+                +{stats.practices.pointsEarned} word points from scored practice sentences
               </p>
+              <p>{stats.practices.completed} of {stats.practices.total} practices finished</p>
             </div>
           </section>
 
           <div className="grid gap-10 md:grid-cols-2 xl:grid-cols-3">
             <WordList title="Needs work" items={stats.words.weakest} />
-            <WordList title="Strongest" items={stats.words.strongest} />
-            <div className="md:col-span-2 xl:col-span-1">
+            {stats.words.strongest.length > 0 ? (
+              <WordList title="Strongest" items={stats.words.strongest} />
+            ) : null}
+            <div className={stats.words.strongest.length > 0 ? "md:col-span-2 xl:col-span-1" : "md:col-span-1"}>
               <WordList title="Recently updated" items={stats.words.recent} stamp />
             </div>
           </div>

@@ -91,6 +91,14 @@ export async function getStats(): Promise<StatsSnapshot> {
   const favouritePoints = favourites.map((item) => item.points)
   const favouriteTotal = favouritePoints.reduce((sum, value) => sum + value, 0)
 
+  const weakestDocs = sortedByPoints.slice(0, LIST_SIZE)
+  const weakestWords = new Set(weakestDocs.map((item) => item.word))
+  const strongestDocs = sortedByPoints
+    .slice()
+    .reverse()
+    .filter((item) => !weakestWords.has(item.word))
+    .slice(0, LIST_SIZE)
+
   return {
     words: {
       total: words.length,
@@ -99,12 +107,8 @@ export async function getStats(): Promise<StatsSnapshot> {
       lowest: pointValues[0] ?? 0,
       highest: pointValues.at(-1) ?? 0,
       buckets: bucketsFor(pointValues),
-      weakest: sortedByPoints.slice(0, LIST_SIZE).map((item) => toWordStat(item.word, item.points)),
-      strongest: sortedByPoints
-        .slice()
-        .reverse()
-        .slice(0, LIST_SIZE)
-        .map((item) => toWordStat(item.word, item.points)),
+      weakest: weakestDocs.map((item) => toWordStat(item.word, item.points)),
+      strongest: strongestDocs.map((item) => toWordStat(item.word, item.points)),
       recent,
     },
     practices: {
