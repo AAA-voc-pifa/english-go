@@ -1,24 +1,24 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { DeckSession } from "@/components/deck-session"
 import { NewRoundButton } from "@/components/new-round-button"
+import { Sentence } from "@/components/sentence"
 import { StatusBlock } from "@/components/status-block"
 import { requestJson } from "@/lib/http"
-import type { PracticeListResponse } from "@/lib/types"
+import type { SentenceListResponse, StarredSentence } from "@/lib/types"
 
 export default function HomePage() {
-  const [latestId, setLatestId] = useState<string | null | undefined>(undefined)
+  const [sentence, setSentence] = useState<StarredSentence | null | undefined>(undefined)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    requestJson<PracticeListResponse>("/api/practices")
+    requestJson<SentenceListResponse>("/api/sentences")
       .then((data) => {
-        if (!cancelled) setLatestId(data.practices[0]?.id ?? null)
+        if (!cancelled) setSentence(data.sentences[0] ?? null)
       })
       .catch((caught: unknown) => {
-        if (!cancelled) setError(caught instanceof Error ? caught.message : "Couldn't load practice")
+        if (!cancelled) setError(caught instanceof Error ? caught.message : "Couldn't load sentences")
       })
     return () => {
       cancelled = true
@@ -26,8 +26,8 @@ export default function HomePage() {
   }, [])
 
   if (error) return <StatusBlock tone="hot">{error}</StatusBlock>
-  if (latestId === undefined) return <StatusBlock>Loading…</StatusBlock>
-  if (latestId === null) {
+  if (sentence === undefined) return <StatusBlock>Loading…</StatusBlock>
+  if (sentence === null) {
     return (
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center gap-8 px-5 py-16">
         <div className="max-w-xl">
@@ -42,5 +42,12 @@ export default function HomePage() {
     )
   }
 
-  return <DeckSession key={latestId} id={latestId} kind="practice" view="sentence" />
+  return (
+    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-5 py-16">
+      <Sentence en={sentence.en} word={sentence.word} />
+      <p lang="zh-CN" className="mt-6 max-w-2xl text-sm leading-6 text-muted">
+        {sentence.zh}
+      </p>
+    </main>
+  )
 }

@@ -63,11 +63,9 @@ function endpoint(kind: "practice" | "review", id: string, cardId?: string): str
 export function DeckSession({
   id,
   kind,
-  view = "deck",
 }: {
   id: string
   kind: "practice" | "review"
-  view?: "deck" | "sentence"
 }) {
   const [deck, setDeck] = useState<Deck | null>(null)
   const [settings, setSettings] = useState<AppSettings | null>(null)
@@ -140,14 +138,14 @@ export function DeckSession({
   }, [finished, cardId, stop])
 
   useEffect(() => {
-    if (view === "sentence" || !cardId || !settings?.autoSpeak || finished) return
+    if (!cardId || !settings?.autoSpeak || finished) return
     const timer = window.setTimeout(() => {
       void play(cardId)
     }, 0)
     return () => {
       window.clearTimeout(timer)
     }
-  }, [cardId, finished, play, settings?.autoSpeak, view])
+  }, [cardId, finished, play, settings?.autoSpeak])
 
   useEffect(() => {
     if (!nextId || !settings) return
@@ -261,16 +259,6 @@ export function DeckSession({
   if (loading) return <StatusBlock>Loading…</StatusBlock>
   if (loadError || !deck || !card) {
     return <StatusBlock tone="hot">{loadError ?? "This session is empty"}</StatusBlock>
-  }
-  if (view === "sentence") {
-    return (
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-5 py-16">
-        <Sentence en={card.en} word={card.word} />
-        <p lang="zh-CN" className="mt-6 max-w-2xl text-sm leading-6 text-muted">
-          {card.zh}
-        </p>
-      </main>
-    )
   }
 
   if (finished) {
