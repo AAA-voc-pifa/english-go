@@ -190,8 +190,10 @@ export function DeckSession({
     if (item.award !== null || scoring.current.has(item.id)) return
     scoring.current.add(item.id)
     setActionError(null)
+    let previousCursor = 0
     setDeck((current) => {
       if (!current) return current
+      previousCursor = current.cursor
       const cards = current.cards.map((entry) => (entry.id === item.id ? { ...entry, award: points } : entry))
       const cursor =
         current.cards[current.cursor]?.id === item.id && current.cursor < cards.length - 1
@@ -211,6 +213,7 @@ export function DeckSession({
           current
             ? {
                 ...current,
+                cursor: previousCursor,
                 cards: current.cards.map((entry) =>
                   entry.id === item.id && entry.award === points ? { ...entry, award: null } : entry,
                 ),

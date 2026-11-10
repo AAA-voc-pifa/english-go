@@ -48,7 +48,19 @@ export async function starPracticeLine(lineId: string): Promise<StarredSentence>
 }
 
 export async function deleteSentence(id: string): Promise<void> {
-  const { sentences } = await collections()
-  const result = await sentences.deleteOne({ _id: parseId(id, "Sentence not found") })
+  const { sentences, reviews } = await collections()
+  const objectId = parseId(id, "Sentence not found")
+  const result = await sentences.deleteOne({ _id: objectId })
   if (result.deletedCount !== 1) throw new ApiError("Sentence not found", 404)
+
+  // Drop the sentence from any open/finished reviews so a mid-review Remove
+  // cannot leave an unfinishable card behind.
+  const affected = await reviews.find({ "items.sentenceId": objectId }).toArray()
+  await Promise.all(
+    affected.map((doc) => {
+      const items = doc.items.filter((item) => !item.sentenceId.equals(objectId))
+      const cursor = items.length === 0 ? 0 : Math.min(doc.cursor, items.length - 1)
+      return reviews.updateOne({ _id: doc._id }, { $set: { items, cursor } })
+    }),
+  )
 }

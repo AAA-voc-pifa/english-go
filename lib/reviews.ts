@@ -44,11 +44,29 @@ async function requireReview(id: string): Promise<ReviewDoc> {
   return doc
 }
 
-async function readDeck(doc: ReviewDoc): Promise<Deck> {
-  const { sentences } = await collections()
+async function pruneMissingSentences(doc: ReviewDoc): Promise<ReviewDoc> {
+  if (doc.items.length === 0) return doc
+  const { sentences, reviews } = await collections()
   const ids = doc.items.map((item) => item.sentenceId)
+  const found = await sentences
+    .find({ _id: { $in: ids } })
+    .project<{ _id: ObjectId }>({ _id: 1 })
+    .toArray()
+  const alive = new Set(found.map((entry) => entry._id.toHexString()))
+  if (alive.size === doc.items.length) return doc
+
+  const items = doc.items.filter((item) => alive.has(item.sentenceId.toHexString()))
+  const cursor = items.length === 0 ? 0 : Math.min(doc.cursor, items.length - 1)
+  await reviews.updateOne({ _id: doc._id }, { $set: { items, cursor } })
+  return { ...doc, items, cursor }
+}
+
+async function readDeck(doc: ReviewDoc): Promise<Deck> {
+  const pruned = await pruneMissingSentences(doc)
+  const { sentences } = await collections()
+  const ids = pruned.items.map((item) => item.sentenceId)
   const docs = ids.length === 0 ? [] : await sentences.find({ _id: { $in: ids } }).toArray()
-  return toDeck(doc, await pointsFor(docs))
+  return toDeck(pruned, await pointsFor(docs))
 }
 
 function isOpenReview(doc: ReviewDoc): boolean {
@@ -58,7 +76,11 @@ function isOpenReview(doc: ReviewDoc): boolean {
 async function findOpenReview(): Promise<ReviewDoc | null> {
   const { reviews } = await collections()
   const docs = await reviews.find({}, { sort: { createdAt: -1 } }).toArray()
-  return docs.find(isOpenReview) ?? null
+  for (const doc of docs) {
+    const pruned = await pruneMissingSentences(doc)
+    if (isOpenReview(pruned)) return pruned
+  }
+  return null
 }
 
 export async function createReview(): Promise<Deck> {
@@ -97,7 +119,8 @@ export async function createReview(): Promise<Deck> {
 export async function listReviews(limit = 20): Promise<ReviewSummary[]> {
   const { reviews } = await collections()
   const docs = await reviews.find({}, { sort: { createdAt: -1 }, limit }).toArray()
-  return docs.map((doc) => ({
+  const pruned = await Promise.all(docs.map(pruneMissingSentences))
+  return pruned.map((doc) => ({
     id: doc._id.toHexString(),
     createdAt: doc.createdAt.toISOString(),
     answered: doc.items.filter((item) => item.award !== null).length,
