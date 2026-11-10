@@ -1,5 +1,6 @@
 import { route } from "@/lib/api-error"
 import { requirePassword } from "@/lib/auth"
+import { readCursor, readLimit } from "@/lib/query"
 import { listSentences, starPracticeLine } from "@/lib/sentences"
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -9,7 +10,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function GET(request: Request) {
   return route(async () => {
     requirePassword(request)
-    return Response.json({ sentences: await listSentences() })
+    const url = new URL(request.url)
+    const { sentences, nextCursor } = await listSentences(readLimit(url), readCursor(url))
+    return Response.json({ sentences, nextCursor })
   })
 }
 

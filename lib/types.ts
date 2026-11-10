@@ -71,24 +71,11 @@ export type AppSettings = {
 }
 
 export type DeckResponse = { deck: Deck }
-export type PracticeListResponse = { practices: PracticeSummary[] }
-export type SentenceListResponse = { sentences: StarredSentence[] }
+export type PracticeListResponse = { practices: PracticeSummary[]; nextCursor: string | null }
+export type SentenceListResponse = { sentences: StarredSentence[]; nextCursor: string | null }
 export type ReviewListResponse = { reviews: ReviewSummary[] }
 export type SettingsResponse = { settings: AppSettings }
 export type VoicesResponse = { voices: TtsVoice[] }
-
-export type WordStat = {
-  word: string
-  points: number
-  updatedAt?: string
-}
-
-export type FavouriteStat = {
-  id: string
-  word: string
-  en: string
-  points: number
-}
 
 export type StatsSnapshot = {
   words: {
@@ -98,9 +85,6 @@ export type StatsSnapshot = {
     lowest: number
     highest: number
     buckets: Array<{ label: string; count: number }>
-    weakest: WordStat[]
-    strongest: WordStat[]
-    recent: WordStat[]
   }
   practices: {
     total: number
@@ -115,7 +99,6 @@ export type StatsSnapshot = {
     lowest: number
     highest: number
     buckets: Array<{ label: string; count: number }>
-    weakest: FavouriteStat[]
   }
   reviews: {
     total: number

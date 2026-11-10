@@ -195,12 +195,31 @@ export async function createPractice(): Promise<Deck> {
   return toDeck(practiceDoc, lineDocs, new Set())
 }
 
-export async function listPractices(limit = 50): Promise<PracticeSummary[]> {
+export async function listPractices(
+  limit = 20,
+  cursor?: string,
+): Promise<{ practices: PracticeSummary[]; nextCursor: string | null }> {
+  const pageSize = Math.min(Math.max(limit, 1), 50)
   const { practices, practiceLines } = await collections()
-  const docs = await practices.find({}, { sort: { createdAt: -1 }, limit }).toArray()
-  if (docs.length === 0) return []
 
-  const ids = docs.map((doc) => doc._id)
+  const filter: Record<string, unknown> = {}
+  if (cursor) {
+    const anchorId = parseId(cursor, "Invalid cursor")
+    const anchor = await practices.findOne({ _id: anchorId }, { projection: { createdAt: 1 } })
+    if (!anchor) return { practices: [], nextCursor: null }
+    filter.$or = [
+      { createdAt: { $lt: anchor.createdAt } },
+      { createdAt: anchor.createdAt, _id: { $lt: anchorId } },
+    ]
+  }
+
+  const docs = await practices
+    .find(filter, { sort: { createdAt: -1, _id: -1 }, limit: pageSize + 1 })
+    .toArray()
+  const page = docs.slice(0, pageSize)
+  if (page.length === 0) return { practices: [], nextCursor: null }
+
+  const ids = page.map((doc) => doc._id)
   const lineDocs = await practiceLines
     .find({ practiceId: { $in: ids } })
     .project<{ practiceId: ObjectId; award: Award | null }>({ practiceId: 1, award: 1 })
@@ -218,7 +237,7 @@ export async function listPractices(limit = 50): Promise<PracticeSummary[]> {
     stats.set(key, current)
   }
 
-  return docs.map((doc) => {
+  const summaries = page.map((doc) => {
     const stat = stats.get(doc._id.toHexString()) ?? { answered: 0, total: 0, gained: 0 }
     return {
       id: doc._id.toHexString(),
@@ -229,6 +248,10 @@ export async function listPractices(limit = 50): Promise<PracticeSummary[]> {
       gained: stat.gained,
     }
   })
+  return {
+    practices: summaries,
+    nextCursor: docs.length > pageSize ? summaries[summaries.length - 1].id : null,
+  }
 }
 
 export async function getPractice(id: string): Promise<Deck> {

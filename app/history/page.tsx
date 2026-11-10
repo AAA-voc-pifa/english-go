@@ -2,8 +2,9 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { KeyButton } from "@/components/key-button"
+import { LoadMoreSentinel } from "@/components/load-more-sentinel"
 import { requestJson } from "@/lib/http"
 import type { PracticeListResponse, PracticeSummary } from "@/lib/types"
 
@@ -22,13 +23,18 @@ function formatWhen(iso: string): string {
 export default function HistoryPage() {
   const router = useRouter()
   const [practices, setPractices] = useState<PracticeSummary[] | null>(null)
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const loadingMoreRef = useRef(false)
 
   useEffect(() => {
     let cancelled = false
-    requestJson<PracticeListResponse>("/api/practices")
+    requestJson<PracticeListResponse>("/api/practices?limit=20")
       .then((data) => {
-        if (!cancelled) setPractices(data.practices)
+        if (cancelled) return
+        setPractices(data.practices)
+        setNextCursor(data.nextCursor)
       })
       .catch((caught: unknown) => {
         if (!cancelled) setError(caught instanceof Error ? caught.message : "Couldn't load history")
@@ -37,6 +43,25 @@ export default function HistoryPage() {
       cancelled = true
     }
   }, [])
+
+  const loadMore = useCallback(() => {
+    if (loadingMoreRef.current || !nextCursor) return
+    loadingMoreRef.current = true
+    setLoadingMore(true)
+    setError(null)
+    requestJson<PracticeListResponse>(`/api/practices?limit=20&cursor=${encodeURIComponent(nextCursor)}`)
+      .then((data) => {
+        setPractices((current) => [...(current ?? []), ...data.practices])
+        setNextCursor(data.nextCursor)
+      })
+      .catch((caught: unknown) => {
+        setError(caught instanceof Error ? caught.message : "Couldn't load more history")
+      })
+      .finally(() => {
+        loadingMoreRef.current = false
+        setLoadingMore(false)
+      })
+  }, [nextCursor])
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-5 py-8">
@@ -89,6 +114,8 @@ export default function HistoryPage() {
           )
         })}
       </ul>
+
+      <LoadMoreSentinel hasMore={nextCursor !== null} loading={loadingMore} onVisible={loadMore} />
     </main>
   )
 }

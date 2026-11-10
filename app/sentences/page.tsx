@@ -1,9 +1,10 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Star } from "lucide-react"
 import { KeyButton } from "@/components/key-button"
+import { LoadMoreSentinel } from "@/components/load-more-sentinel"
 import { Sentence } from "@/components/sentence"
 import { requestJson } from "@/lib/http"
 import type { DeckResponse, ReviewListResponse, SentenceListResponse, StarredSentence } from "@/lib/types"
@@ -11,24 +12,26 @@ import type { DeckResponse, ReviewListResponse, SentenceListResponse, StarredSen
 export default function SentencesPage() {
   const router = useRouter()
   const [sentences, setSentences] = useState<StarredSentence[] | null>(null)
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [openReviewId, setOpenReviewId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
-
-  function load() {
-    return Promise.all([
-      requestJson<SentenceListResponse>("/api/sentences"),
-      requestJson<ReviewListResponse>("/api/reviews"),
-    ]).then(([sentenceData, reviewData]) => {
-      setSentences(sentenceData.sentences)
-      const open = reviewData.reviews.find((review) => review.total > 0 && review.answered < review.total)
-      setOpenReviewId(open?.id ?? null)
-    })
-  }
+  const [loadingMore, setLoadingMore] = useState(false)
+  const loadingMoreRef = useRef(false)
 
   useEffect(() => {
     let cancelled = false
-    load()
+    Promise.all([
+      requestJson<SentenceListResponse>("/api/sentences?limit=20"),
+      requestJson<ReviewListResponse>("/api/reviews"),
+    ])
+      .then(([sentenceData, reviewData]) => {
+        if (cancelled) return
+        setSentences(sentenceData.sentences)
+        setNextCursor(sentenceData.nextCursor)
+        const open = reviewData.reviews.find((review) => review.total > 0 && review.answered < review.total)
+        setOpenReviewId(open?.id ?? null)
+      })
       .catch((caught: unknown) => {
         if (!cancelled) setError(caught instanceof Error ? caught.message : "Couldn't load sentences")
       })
@@ -36,6 +39,25 @@ export default function SentencesPage() {
       cancelled = true
     }
   }, [])
+
+  const loadMore = useCallback(() => {
+    if (loadingMoreRef.current || !nextCursor) return
+    loadingMoreRef.current = true
+    setLoadingMore(true)
+    setError(null)
+    requestJson<SentenceListResponse>(`/api/sentences?limit=20&cursor=${encodeURIComponent(nextCursor)}`)
+      .then((data) => {
+        setSentences((current) => [...(current ?? []), ...data.sentences])
+        setNextCursor(data.nextCursor)
+      })
+      .catch((caught: unknown) => {
+        setError(caught instanceof Error ? caught.message : "Couldn't load more sentences")
+      })
+      .finally(() => {
+        loadingMoreRef.current = false
+        setLoadingMore(false)
+      })
+  }, [nextCursor])
 
   async function review() {
     if (pending) return
@@ -53,14 +75,18 @@ export default function SentencesPage() {
   async function remove(sentence: StarredSentence) {
     setError(null)
     const previous = sentences
+    const previousCursor = nextCursor
     setSentences((current) => current?.filter((item) => item.id !== sentence.id) ?? current)
     try {
       await requestJson(`/api/sentences/${sentence.id}`, { method: "DELETE" })
     } catch (caught) {
       setSentences(previous)
+      setNextCursor(previousCursor)
       setError(caught instanceof Error ? caught.message : "Couldn't remove that sentence")
     }
   }
+
+  const canReview = (sentences?.length ?? 0) > 0 || nextCursor !== null
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-5 py-8">
@@ -76,7 +102,7 @@ export default function SentencesPage() {
               Continue
             </KeyButton>
           ) : (
-            <KeyButton onClick={() => void review()} disabled={pending || sentences?.length === 0} tone="lime">
+            <KeyButton onClick={() => void review()} disabled={pending || !canReview} tone="lime">
               {pending ? "Starting" : "Review"}
             </KeyButton>
           )}
@@ -93,7 +119,9 @@ export default function SentencesPage() {
           Loading…
         </p>
       ) : null}
-      {sentences?.length === 0 ? <p className="text-muted">Star a sentence during practice.</p> : null}
+      {sentences?.length === 0 && nextCursor === null ? (
+        <p className="text-muted">Star a sentence during practice.</p>
+      ) : null}
 
       <ol className="divide-y divide-line border-y border-line">
         {sentences?.map((sentence) => (
@@ -119,6 +147,8 @@ export default function SentencesPage() {
           </li>
         ))}
       </ol>
+
+      <LoadMoreSentinel hasMore={nextCursor !== null} loading={loadingMore} onVisible={loadMore} />
     </main>
   )
 }

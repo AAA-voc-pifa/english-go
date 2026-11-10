@@ -13,7 +13,7 @@ export default function HomePage() {
 
   useEffect(() => {
     let cancelled = false
-    requestJson<SentenceListResponse>("/api/sentences")
+    requestJson<SentenceListResponse>("/api/sentences?limit=1")
       .then((data) => {
         if (!cancelled) setSentence(data.sentences[0] ?? null)
       })

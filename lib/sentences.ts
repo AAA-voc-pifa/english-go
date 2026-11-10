@@ -15,10 +15,36 @@ function toSentence(doc: SentenceDoc): StarredSentence {
   }
 }
 
-export async function listSentences(limit = 200): Promise<StarredSentence[]> {
+export async function listSentences(
+  limit = 20,
+  cursor?: string,
+): Promise<{ sentences: StarredSentence[]; nextCursor: string | null }> {
+  const pageSize = Math.min(Math.max(limit, 1), 50)
   const { sentences } = await collections()
-  const docs = await sentences.find({}, { sort: { points: 1, createdAt: 1 }, limit }).toArray()
-  return docs.map(toSentence)
+
+  const filter: Record<string, unknown> = {}
+  if (cursor) {
+    const anchorId = parseId(cursor, "Invalid cursor")
+    const anchor = await sentences.findOne(
+      { _id: anchorId },
+      { projection: { points: 1, createdAt: 1 } },
+    )
+    if (!anchor) return { sentences: [], nextCursor: null }
+    filter.$or = [
+      { points: { $gt: anchor.points } },
+      { points: anchor.points, createdAt: { $gt: anchor.createdAt } },
+      { points: anchor.points, createdAt: anchor.createdAt, _id: { $gt: anchorId } },
+    ]
+  }
+
+  const docs = await sentences
+    .find(filter, { sort: { points: 1, createdAt: 1, _id: 1 }, limit: pageSize + 1 })
+    .toArray()
+  const page = docs.slice(0, pageSize).map(toSentence)
+  return {
+    sentences: page,
+    nextCursor: docs.length > pageSize ? page[page.length - 1].id : null,
+  }
 }
 
 export async function starPracticeLine(lineId: string): Promise<StarredSentence> {
