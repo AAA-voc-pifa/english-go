@@ -118,7 +118,7 @@ export async function getWordPoints(word: string): Promise<number> {
   return readWord(body.data).points
 }
 
-export async function setWordPoints(word: string, points: number): Promise<void> {
+export async function addWordPoints(word: string, points: number): Promise<void> {
   const body = await vocFetch(
     vocUrl(`voc/points/${encodeURIComponent(word)}`, { points: String(points) }),
     "POST",
@@ -130,8 +130,6 @@ export async function setWordPoints(word: string, points: number): Promise<void>
 }
 
 export async function increaseWordPoints(word: string, delta: number): Promise<number> {
-  const current = await getWordPoints(word)
-  const next = current + delta
-  await setWordPoints(word, next)
-  return next
+  await addWordPoints(word, delta)
+  return getWordPoints(word)
 }
