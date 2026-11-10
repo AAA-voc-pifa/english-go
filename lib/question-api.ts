@@ -8,11 +8,17 @@ export type GeneratedQuestion = {
   zh: string
 }
 
+export type GeneratedQuestions = {
+  word: string
+  questions: GeneratedQuestion[]
+  raw: unknown
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
 }
 
-export async function generateTranslations(word: string): Promise<GeneratedQuestion[]> {
+export async function generateTranslations(word: string): Promise<GeneratedQuestions> {
   if (!WORD.test(word)) {
     throw new ApiError(`"${word}" can't be sent to the question service`, 400)
   }
@@ -46,11 +52,11 @@ export async function generateTranslations(word: string): Promise<GeneratedQuest
   } catch {
     throw new ApiError(`Question response was not JSON (${word})`, 502)
   }
-  if (!isRecord(body) || !Array.isArray(body.questions)) {
+  if (!isRecord(body) || !isRecord(body.data) || !Array.isArray(body.data.questions) || !("raw" in body)) {
     throw new ApiError(`Question response was unreadable (${word})`, 502)
   }
 
-  const questions = body.questions.map((item, index) => {
+  const questions = body.data.questions.map((item, index) => {
     if (!isRecord(item) || typeof item.en !== "string" || typeof item.zh !== "string") {
       throw new ApiError(`${word} sentence ${index + 1} is missing English or Chinese`, 502)
     }
@@ -63,5 +69,5 @@ export async function generateTranslations(word: string): Promise<GeneratedQuest
   if (questions.length !== 3) {
     throw new ApiError(`${word} should have 3 sentences, got ${questions.length}`, 502)
   }
-  return questions
+  return { word, questions, raw: body.raw }
 }

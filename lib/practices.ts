@@ -90,10 +90,10 @@ export async function createPractice(): Promise<Deck> {
   if (lowest.length === 0) throw new ApiError("The word list is empty. Add words in my-voc first.", 409)
 
   const groups = await Promise.all(
-    lowest.map(async (item) => ({
-      word: item,
-      questions: await generateTranslations(item.word),
-    })),
+    lowest.map(async (item) => {
+      const generated = await generateTranslations(item.word)
+      return { word: item, generated }
+    }),
   )
 
   const practiceId = new ObjectId()
@@ -103,10 +103,14 @@ export async function createPractice(): Promise<Deck> {
     createdAt: new Date(),
     cursor: 0,
     words,
+    questionRaws: groups.map(({ word, generated }) => ({
+      word: word.word,
+      raw: generated.raw,
+    })),
   }
   const lineDocs: PracticeLineDoc[] = shuffle(
-    groups.flatMap(({ word, questions }) =>
-      questions.map((question) => ({
+    groups.flatMap(({ word, generated }) =>
+      generated.questions.map((question) => ({
         word: word.word,
         en: question.en,
         zh: question.zh,

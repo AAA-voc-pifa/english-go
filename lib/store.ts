@@ -2,11 +2,18 @@ import { MongoServerError, ObjectId, type Collection, type Db } from "mongodb"
 import { getDb } from "@/lib/mongo"
 import { isAward, type Award, type PracticeWord } from "@/lib/types"
 
+export type PracticeQuestionRaw = {
+  word: string
+  raw: unknown
+}
+
 export type PracticeDoc = {
   _id: ObjectId
   createdAt: Date
   cursor: number
   words: PracticeWord[]
+  /** LLM raw payloads from the question API; stored for records only. */
+  questionRaws?: PracticeQuestionRaw[]
 }
 
 export type PracticeLineDoc = {

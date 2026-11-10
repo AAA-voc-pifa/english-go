@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { passwordHeaders } from "@/lib/client-auth"
+import { passwordHeaders, readPassword } from "@/lib/client-auth"
 
 type Phase = "idle" | "loading" | "playing"
 type SpeechAudio = HTMLAudioElement & { objectUrl?: string }
@@ -24,6 +24,7 @@ export function setSpeechCacheKey(key: string) {
 }
 
 async function fetchClip(lineId: string): Promise<Blob> {
+  if (!readPassword()) throw new Error("Wrong password")
   const response = await fetch(`/api/speak?card=${encodeURIComponent(lineId)}`, {
     headers: passwordHeaders(),
   })

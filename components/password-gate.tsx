@@ -12,14 +12,14 @@ function unknownPassword(): string | null {
 
 export function PasswordGate({ children }: { children: React.ReactNode }) {
   const stored = useSyncExternalStore(subscribePassword, readPassword, unknownPassword)
-  if (!stored) {
-    return <PasswordCover mode={stored === null ? "loading" : "prompt"} />
-  }
+  const unlocked = Boolean(stored)
+
   return (
     <>
-      <AppHeader />
-      <PracticeReadyDialog />
-      {children}
+      {unlocked ? <AppHeader /> : null}
+      {unlocked ? <PracticeReadyDialog /> : null}
+      <div key={unlocked ? "in" : "out"}>{children}</div>
+      {unlocked ? null : <PasswordCover mode={stored === null ? "loading" : "prompt"} />}
     </>
   )
 }
