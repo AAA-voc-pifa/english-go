@@ -18,7 +18,9 @@ export function PasswordGate({ children }: { children: React.ReactNode }) {
     <>
       {unlocked ? <AppHeader /> : null}
       {unlocked ? <PracticeReadyDialog /> : null}
-      <div key={unlocked ? "in" : "out"}>{children}</div>
+      <div key={unlocked ? "in" : "out"} className="flex min-h-0 flex-1 flex-col">
+        {children}
+      </div>
       {unlocked ? null : <PasswordCover mode={stored === null ? "loading" : "prompt"} />}
     </>
   )
