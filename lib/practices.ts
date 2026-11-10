@@ -11,7 +11,42 @@ import {
   type PracticeSummary,
   type PracticeWord,
 } from "@/lib/types"
-import { increaseWordPoints, listLowest } from "@/lib/voc"
+import { increaseWordPoints, listAllWords } from "@/lib/voc"
+
+const PRACTICE_WORDS = 3
+const MAX_OPEN_PRACTICES = 1
+
+async function openPracticeState(): Promise<{ count: number; busyWords: Set<string> }> {
+  const { practices, practiceLines } = await collections()
+  const docs = await practices.find({}, { projection: { _id: 1, words: 1 } }).toArray()
+  if (docs.length === 0) return { count: 0, busyWords: new Set() }
+
+  const ids = docs.map((doc) => doc._id)
+  const lineDocs = await practiceLines
+    .find({ practiceId: { $in: ids } })
+    .project<{ practiceId: ObjectId; award: Award | null }>({ practiceId: 1, award: 1 })
+    .toArray()
+
+  const byPractice = new Map<string, { total: number; answered: number }>()
+  for (const line of lineDocs) {
+    const key = line.practiceId.toHexString()
+    const current = byPractice.get(key) ?? { total: 0, answered: 0 }
+    current.total += 1
+    if (line.award !== null) current.answered += 1
+    byPractice.set(key, current)
+  }
+
+  const busyWords = new Set<string>()
+  let count = 0
+  for (const doc of docs) {
+    const stat = byPractice.get(doc._id.toHexString())
+    if (!stat || stat.total === 0) continue
+    if (stat.answered >= stat.total) continue
+    count += 1
+    for (const word of doc.words) busyWords.add(word.word)
+  }
+  return { count, busyWords }
+}
 
 export function parseId(id: string, message: string): ObjectId {
   if (!/^[a-f\d]{24}$/i.test(id)) throw new ApiError(message, 404)
@@ -86,8 +121,27 @@ async function readDeck(doc: PracticeDoc): Promise<Deck> {
 }
 
 export async function createPractice(): Promise<Deck> {
-  const lowest = await listLowest(3, 0)
-  if (lowest.length === 0) throw new ApiError("The word list is empty. Add words in my-voc first.", 409)
+  const open = await openPracticeState()
+  if (open.count > MAX_OPEN_PRACTICES) {
+    throw new ApiError("Finish an open practice before starting another", 409)
+  }
+
+  const allWords = await listAllWords()
+  if (allWords.length === 0) throw new ApiError("The word list is empty. Add words in my-voc first.", 409)
+
+  const available = allWords
+    .filter((item) => !open.busyWords.has(item.word))
+    .sort((left, right) => left.points - right.points || left.word.localeCompare(right.word))
+  if (available.length === 0) {
+    throw new ApiError("Every word is already in an open practice", 409)
+  }
+  const lowest = available.slice(0, PRACTICE_WORDS)
+  if (lowest.length < PRACTICE_WORDS) {
+    throw new ApiError(
+      `Need ${PRACTICE_WORDS} free words to start a practice, only ${lowest.length} left`,
+      409,
+    )
+  }
 
   const groups = await Promise.all(
     lowest.map(async (item) => {

@@ -88,7 +88,7 @@ export async function getStats(): Promise<StatsSnapshot> {
     if (review.items.length > 0 && answered === review.items.length) reviewCompleted += 1
   }
 
-  const favouritePoints = favourites.map((item) => item.points)
+  const favouritePoints = favourites.map((item) => item.points).slice().sort((left, right) => left - right)
   const favouriteTotal = favouritePoints.reduce((sum, value) => sum + value, 0)
 
   const weakestDocs = sortedByPoints.slice(0, LIST_SIZE)
@@ -121,6 +121,9 @@ export async function getStats(): Promise<StatsSnapshot> {
       total: favourites.length,
       average: favourites.length === 0 ? 0 : round1(favouriteTotal / favourites.length),
       unscored: favouritePoints.filter((value) => value === 0).length,
+      lowest: favouritePoints[0] ?? 0,
+      highest: favouritePoints.at(-1) ?? 0,
+      buckets: bucketsFor(favouritePoints),
       weakest: favourites.slice(0, LIST_SIZE).map((item) => ({
         id: item._id.toHexString(),
         word: item.word,

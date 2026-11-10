@@ -3,6 +3,7 @@ import { ApiError } from "@/lib/api-error"
 import { parseId } from "@/lib/practices"
 import { collections, type ReviewDoc, type SentenceDoc } from "@/lib/store"
 import { isAward, type Deck, type ReviewSummary } from "@/lib/types"
+import { increaseWordPoints } from "@/lib/voc"
 
 const REVIEW_SIZE = 9
 
@@ -50,9 +51,30 @@ async function readDeck(doc: ReviewDoc): Promise<Deck> {
   return toDeck(doc, await pointsFor(docs))
 }
 
+function isOpenReview(doc: ReviewDoc): boolean {
+  return doc.items.length > 0 && doc.items.some((item) => item.award === null)
+}
+
+async function findOpenReview(): Promise<ReviewDoc | null> {
+  const { reviews } = await collections()
+  const docs = await reviews.find({}, { sort: { createdAt: -1 } }).toArray()
+  return docs.find(isOpenReview) ?? null
+}
+
 export async function createReview(): Promise<Deck> {
+  const open = await findOpenReview()
+  if (open) return readDeck(open)
+
   const { sentences, reviews } = await collections()
-  const picked = await sentences.find({}, { sort: { points: 1, createdAt: 1 }, limit: REVIEW_SIZE }).toArray()
+  const candidates = await sentences.find({}, { sort: { points: 1, createdAt: 1 } }).toArray()
+  const picked: SentenceDoc[] = []
+  const seenWords = new Set<string>()
+  for (const sentence of candidates) {
+    if (seenWords.has(sentence.word)) continue
+    seenWords.add(sentence.word)
+    picked.push(sentence)
+    if (picked.length >= REVIEW_SIZE) break
+  }
   if (picked.length === 0) throw new ApiError("No starred sentences yet", 409)
 
   const doc: ReviewDoc = {
@@ -109,6 +131,10 @@ export async function setReviewRevealed(id: string, sentenceId: string, revealed
   return getReview(id)
 }
 
+function wordPointsFromSentenceAward(award: number): number {
+  return Math.ceil((award * 2) / 3)
+}
+
 export async function awardReviewCard(id: string, sentenceId: string, award: number): Promise<Deck> {
   if (!isAward(award)) throw new ApiError("Score must be 5, 10, or 15", 400)
   const doc = await requireReview(id)
@@ -121,14 +147,25 @@ export async function awardReviewCard(id: string, sentenceId: string, award: num
   const sentence = await sentences.findOne({ _id: objectId })
   if (!sentence) throw new ApiError("Sentence not found", 404)
 
-  await sentences.updateOne({ _id: sentence._id }, { $inc: { points: award } })
+  const wordDelta = wordPointsFromSentenceAward(award)
+  await increaseWordPoints(sentence.word, wordDelta)
+  try {
+    await sentences.updateOne({ _id: sentence._id }, { $inc: { points: award } })
+  } catch (error) {
+    await increaseWordPoints(sentence.word, -wordDelta).catch(() => undefined)
+    throw error
+  }
+
   const updated = await reviews.updateOne(
     { _id: doc._id },
     { $set: { "items.$[item].award": award } },
     { arrayFilters: [{ "item.sentenceId": objectId, "item.award": null }] },
   )
   if (updated.matchedCount !== 1) {
-    await sentences.updateOne({ _id: sentence._id }, { $inc: { points: -award } }).catch(() => undefined)
+    await Promise.all([
+      sentences.updateOne({ _id: sentence._id }, { $inc: { points: -award } }).catch(() => undefined),
+      increaseWordPoints(sentence.word, -wordDelta).catch(() => undefined),
+    ])
     throw new ApiError("Already scored", 409)
   }
   return getReview(id)

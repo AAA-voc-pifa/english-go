@@ -28,6 +28,42 @@ function Stat({ label, value, hint }: { label: string; value: string | number; h
   )
 }
 
+function ScoreSpread({
+  title,
+  lowest,
+  highest,
+  buckets,
+  maxBucket,
+}: {
+  title: string
+  lowest: number
+  highest: number
+  buckets: Array<{ label: string; count: number }>
+  maxBucket: number
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted uppercase">{title}</h2>
+        <p className="mt-2 text-sm text-muted">
+          Lowest {lowest} · highest {highest}
+        </p>
+      </div>
+      <ul className="flex flex-col gap-3">
+        {buckets.map((bucket) => (
+          <li key={`${title}-${bucket.label}`} className="grid grid-cols-[4.5rem_1fr_2.5rem] items-center gap-3">
+            <span className="font-mono text-[11px] text-muted tabular-nums">{bucket.label}</span>
+            <div className="h-2 bg-line">
+              <div className="h-full bg-lime" style={{ width: `${(bucket.count / maxBucket) * 100}%` }} />
+            </div>
+            <span className="text-right font-mono text-xs tabular-nums">{bucket.count}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 function WordList({ title, items, stamp }: { title: string; items: WordStat[]; stamp?: boolean }) {
   return (
     <section className="min-w-0 flex flex-col gap-3">
@@ -71,7 +107,8 @@ export default function StatsPage() {
     }
   }, [])
 
-  const maxBucket = Math.max(1, ...(stats?.words.buckets.map((bucket) => bucket.count) ?? [1]))
+  const maxWordBucket = Math.max(1, ...(stats?.words.buckets.map((bucket) => bucket.count) ?? [1]))
+  const maxSentenceBucket = Math.max(1, ...(stats?.favourites.buckets.map((bucket) => bucket.count) ?? [1]))
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-10 px-5 py-8 sm:px-8">
@@ -124,41 +161,21 @@ export default function StatsPage() {
             />
           </section>
 
-          <section className="grid gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-start">
-            <div className="flex flex-col gap-4">
-              <div>
-                <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted uppercase">Score spread</h2>
-                <p className="mt-2 text-sm text-muted">
-                  Lowest {stats.words.lowest} · highest {stats.words.highest}
-                </p>
-              </div>
-              <ul className="flex flex-col gap-3">
-                {stats.words.buckets.map((bucket) => (
-                  <li key={bucket.label} className="grid grid-cols-[4.5rem_1fr_2.5rem] items-center gap-3">
-                    <span className="font-mono text-[11px] text-muted tabular-nums">{bucket.label}</span>
-                    <div className="h-2 bg-line">
-                      <div
-                        className="h-full bg-lime"
-                        style={{ width: `${(bucket.count / maxBucket) * 100}%` }}
-                      />
-                    </div>
-                    <span className="text-right font-mono text-xs tabular-nums">{bucket.count}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="border-t border-line pt-6 text-sm leading-7 text-muted lg:border-t-0 lg:border-l lg:pt-0 lg:pl-10">
-              <p className="font-mono text-[11px] tracking-[0.2em] uppercase">Activity</p>
-              <p className="mt-3 text-ink">
-                {stats.practices.sentencesScored} practice sentences scored
-              </p>
-              <p>{stats.reviews.sentencesScored} favourite sentences scored in review</p>
-              <p className="mt-4">
-                +{stats.practices.pointsEarned} word points from scored practice sentences
-              </p>
-              <p>{stats.practices.completed} of {stats.practices.total} practices finished</p>
-            </div>
+          <section className="grid gap-10 lg:grid-cols-2 lg:items-start">
+            <ScoreSpread
+              title="Word score spread"
+              lowest={stats.words.lowest}
+              highest={stats.words.highest}
+              buckets={stats.words.buckets}
+              maxBucket={maxWordBucket}
+            />
+            <ScoreSpread
+              title="Sentence score spread"
+              lowest={stats.favourites.lowest}
+              highest={stats.favourites.highest}
+              buckets={stats.favourites.buckets}
+              maxBucket={maxSentenceBucket}
+            />
           </section>
 
           <div className="grid gap-10 md:grid-cols-2 xl:grid-cols-3">

@@ -72,13 +72,14 @@ export default function SentencesPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           {openReviewId ? (
-            <KeyButton shortcut="b" onClick={() => router.push(`/review/${openReviewId}`)}>
+            <KeyButton shortcut="b" onClick={() => router.push(`/review/${openReviewId}`)} tone="lime">
               Continue
             </KeyButton>
-          ) : null}
-          <KeyButton onClick={() => void review()} disabled={pending || sentences?.length === 0} tone="lime">
-            {pending ? "Starting" : "Review"}
-          </KeyButton>
+          ) : (
+            <KeyButton onClick={() => void review()} disabled={pending || sentences?.length === 0} tone="lime">
+              {pending ? "Starting" : "Review"}
+            </KeyButton>
+          )}
         </div>
       </div>
 

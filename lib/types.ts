@@ -112,6 +112,9 @@ export type StatsSnapshot = {
     total: number
     average: number
     unscored: number
+    lowest: number
+    highest: number
+    buckets: Array<{ label: string; count: number }>
     weakest: FavouriteStat[]
   }
   reviews: {
