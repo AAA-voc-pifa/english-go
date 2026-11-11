@@ -1,6 +1,6 @@
 import { ObjectId } from "mongodb"
 import { ApiError } from "@/lib/api-error"
-import { generateTranslations } from "@/lib/question-api"
+import { generateMultiTranslations, generateTranslations } from "@/lib/question-api"
 import { collections, type PracticeDoc, type PracticeLineDoc } from "@/lib/store"
 import {
   isAward,
@@ -8,13 +8,20 @@ import {
   type Deck,
   type DeckCard,
   type DeckGroup,
+  type PracticeKind,
   type PracticeSummary,
   type PracticeWord,
 } from "@/lib/types"
 import { increaseWordPoints, listAllWords } from "@/lib/voc"
 
-const PRACTICE_WORDS = 3
+const DEEP_WORDS = 3
+const WIDE_WORDS = 9
+const WIDE_BATCH = 3
 const MAX_OPEN_PRACTICES = 1
+
+function practiceKind(doc: PracticeDoc): PracticeKind {
+  return doc.kind === "wide" ? "wide" : "deep"
+}
 
 async function openPracticeState(): Promise<{ count: number; busyWords: Set<string> }> {
   const { practices, practiceLines } = await collections()
@@ -109,6 +116,7 @@ function toDeck(doc: PracticeDoc, lineDocs: PracticeLineDoc[], starred: Set<stri
   return {
     id: doc._id.toHexString(),
     createdAt: doc.createdAt.toISOString(),
+    kind: practiceKind(doc),
     cursor: Math.min(Math.max(doc.cursor, 0), last),
     cards,
     groups,
@@ -120,29 +128,45 @@ async function readDeck(doc: PracticeDoc): Promise<Deck> {
   return toDeck(doc, lines, await starredEnglish(lines))
 }
 
-export async function createPractice(): Promise<Deck> {
-  const open = await openPracticeState()
-  if (open.count > MAX_OPEN_PRACTICES) {
-    throw new ApiError("Finish an open practice before starting another", 409)
-  }
+type VocWord = { word: string; points: number }
 
+async function pickWords(count: number, busyWords: Set<string>): Promise<VocWord[]> {
   const allWords = await listAllWords()
   if (allWords.length === 0) throw new ApiError("The word list is empty. Add words in my-voc first.", 409)
 
   const available = allWords
-    .filter((item) => !open.busyWords.has(item.word))
+    .filter((item) => !busyWords.has(item.word))
     .sort((left, right) => left.points - right.points || left.word.localeCompare(right.word))
   if (available.length === 0) {
     throw new ApiError("Every word is already in an open practice", 409)
   }
-  const lowest = available.slice(0, PRACTICE_WORDS)
-  if (lowest.length < PRACTICE_WORDS) {
-    throw new ApiError(
-      `Need ${PRACTICE_WORDS} free words to start a practice, only ${lowest.length} left`,
-      409,
-    )
+  const lowest = available.slice(0, count)
+  if (lowest.length < count) {
+    throw new ApiError(`Need ${count} free words to start a practice, only ${lowest.length} left`, 409)
   }
+  return lowest
+}
 
+async function persistPractice(
+  practiceDoc: PracticeDoc,
+  lineDocs: PracticeLineDoc[],
+): Promise<Deck> {
+  const { practices, practiceLines } = await collections()
+  await practices.insertOne(practiceDoc)
+  try {
+    await practiceLines.insertMany(lineDocs)
+  } catch (error) {
+    await Promise.all([
+      practices.deleteOne({ _id: practiceDoc._id }),
+      practiceLines.deleteMany({ practiceId: practiceDoc._id }),
+    ])
+    throw error
+  }
+  return toDeck(practiceDoc, lineDocs, new Set())
+}
+
+async function createDeepPractice(busyWords: Set<string>): Promise<Deck> {
+  const lowest = await pickWords(DEEP_WORDS, busyWords)
   const groups = await Promise.all(
     lowest.map(async (item) => {
       const generated = await generateTranslations(item.word)
@@ -156,9 +180,10 @@ export async function createPractice(): Promise<Deck> {
     _id: practiceId,
     createdAt: new Date(),
     cursor: 0,
+    kind: "deep",
     words,
     questionRaws: groups.map(({ word, generated }) => ({
-      word: word.word,
+      words: [word.word],
       raw: generated.raw,
     })),
   }
@@ -181,18 +206,76 @@ export async function createPractice(): Promise<Deck> {
     award: null,
   }))
 
-  const { practices, practiceLines } = await collections()
-  await practices.insertOne(practiceDoc)
-  try {
-    await practiceLines.insertMany(lineDocs)
-  } catch (error) {
-    await Promise.all([
-      practices.deleteOne({ _id: practiceId }),
-      practiceLines.deleteMany({ practiceId }),
-    ])
-    throw error
+  return persistPractice(practiceDoc, lineDocs)
+}
+
+async function createWidePractice(busyWords: Set<string>): Promise<Deck> {
+  const lowest = await pickWords(WIDE_WORDS, busyWords)
+  const batches: Array<[VocWord, VocWord, VocWord]> = []
+  for (let index = 0; index < WIDE_WORDS; index += WIDE_BATCH) {
+    batches.push([lowest[index], lowest[index + 1], lowest[index + 2]])
   }
-  return toDeck(practiceDoc, lineDocs, new Set())
+
+  const generatedBatches = await Promise.all(
+    batches.map(async (batch) => {
+      const generated = await generateMultiTranslations([batch[0].word, batch[1].word, batch[2].word])
+      return { batch, generated }
+    }),
+  )
+
+  const practiceId = new ObjectId()
+  const words: PracticeWord[] = lowest.map((item) => ({ word: item.word, points: item.points }))
+  const practiceDoc: PracticeDoc = {
+    _id: practiceId,
+    createdAt: new Date(),
+    cursor: 0,
+    kind: "wide",
+    words,
+    questionRaws: generatedBatches.map(({ batch, generated }) => ({
+      words: batch.map((item) => item.word),
+      raw: generated.raw,
+    })),
+  }
+  const lineDocs: PracticeLineDoc[] = shuffle(
+    generatedBatches.flatMap(({ generated }) =>
+      generated.questions.map((question) => ({
+        word: question.word,
+        en: question.en,
+        zh: question.zh,
+      })),
+    ),
+  ).map((question, position) => ({
+    _id: new ObjectId(),
+    practiceId,
+    position,
+    word: question.word,
+    en: question.en,
+    zh: question.zh,
+    revealed: false,
+    award: null,
+  }))
+
+  return persistPractice(practiceDoc, lineDocs)
+}
+
+export async function createPractice(): Promise<Deck> {
+  const open = await openPracticeState()
+  if (open.count > MAX_OPEN_PRACTICES) {
+    throw new ApiError("Finish an open practice before starting another", 409)
+  }
+
+  const kind: PracticeKind = Math.random() < 0.5 ? "deep" : "wide"
+  if (kind === "wide") {
+    try {
+      return await createWidePractice(open.busyWords)
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        return createDeepPractice(open.busyWords)
+      }
+      throw error
+    }
+  }
+  return createDeepPractice(open.busyWords)
 }
 
 export async function listPractices(
@@ -242,6 +325,7 @@ export async function listPractices(
     return {
       id: doc._id.toHexString(),
       createdAt: doc.createdAt.toISOString(),
+      kind: practiceKind(doc),
       words: doc.words,
       answered: stat.answered,
       total: stat.total,

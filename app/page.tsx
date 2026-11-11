@@ -32,9 +32,9 @@ export default function HomePage() {
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center gap-8 px-5 py-16">
         <div className="max-w-xl">
           <p className="font-mono text-[11px] tracking-[0.2em] text-muted uppercase">Practice</p>
-          <h1 className="mt-4 text-4xl leading-[1.05] tracking-tight sm:text-5xl">Three weakest words. Nine sentences.</h1>
+          <h1 className="mt-4 text-4xl leading-[1.05] tracking-tight sm:text-5xl">Nine sentences. Two ways.</h1>
           <p className="mt-4 max-w-md text-muted">
-            Take the lowest-point words from your list and write three sentences for each.
+            New picks at random: three weak words with three sentences each, or nine weak words with one each.
           </p>
         </div>
         <NewRoundButton label="Start" />

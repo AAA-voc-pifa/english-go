@@ -291,9 +291,7 @@ export function DeckSession({
         <DeckRail groups={deck.groups} cards={deck.cards} currentId={card.id} />
         <article className="flex min-w-0 flex-1 flex-col px-4 py-6 sm:min-h-[48vh] sm:px-8 sm:py-8 lg:px-12">
           <div className="flex items-baseline justify-between gap-4 font-mono text-[11px] tracking-[0.16em] text-muted uppercase">
-            <p>
-              {card.word} · {place}/{siblings.length}
-            </p>
+            <p>{siblings.length > 1 ? `${card.word} · ${place}/${siblings.length}` : card.word}</p>
             <p className="tabular-nums">
               {deck.cursor + 1} / {deck.cards.length}
             </p>

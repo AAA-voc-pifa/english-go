@@ -1,6 +1,6 @@
 "use client"
 
-import { ChartColumn, History, Settings, Star } from "lucide-react"
+import { ChartColumn, List, Settings, Star } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { NewRoundButton } from "@/components/new-round-button"
@@ -10,7 +10,7 @@ import { cn } from "@/lib/cn"
 export function AppHeader() {
   const router = useRouter()
   const pathname = usePathname()
-  useShortcut("h", () => router.push("/history"))
+  useShortcut("h", () => router.push("/practices"))
   useShortcut("c", () => router.push("/sentences"))
   useShortcut("t", () => router.push("/stats"))
 
@@ -23,16 +23,16 @@ export function AppHeader() {
         <nav className="flex items-center gap-1 sm:gap-2">
           <NewRoundButton label="New" tone="ghost" shortcut="n" compact />
           <Link
-            href="/history"
-            aria-current={pathname === "/history" ? "page" : undefined}
+            href="/practices"
+            aria-current={pathname === "/practices" ? "page" : undefined}
             aria-keyshortcuts="H"
             className={cn(
               "inline-flex h-10 w-10 items-center justify-center gap-2 border border-line bg-panel text-sm sm:w-auto sm:px-3",
-              pathname === "/history" ? "border-lime text-lime" : "text-ink",
+              pathname === "/practices" ? "border-lime text-lime" : "text-ink",
             )}
           >
-            <History aria-hidden="true" className="size-4" />
-            <span className="max-sm:sr-only">History</span>
+            <List aria-hidden="true" className="size-4" />
+            <span className="max-sm:sr-only">Practices</span>
             <kbd className="hidden h-5 min-w-5 place-items-center border border-current/30 px-1 font-mono text-[10px] leading-none sm:inline-grid">
               H
             </kbd>

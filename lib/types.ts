@@ -8,6 +8,8 @@ export const AWARD_LABEL: Record<Award, string> = {
   15: "Solid",
 }
 
+export type PracticeKind = "deep" | "wide"
+
 export type PracticeWord = {
   word: string
   points: number
@@ -16,6 +18,7 @@ export type PracticeWord = {
 export type PracticeSummary = {
   id: string
   createdAt: string
+  kind: PracticeKind
   words: PracticeWord[]
   answered: number
   total: number
@@ -43,6 +46,8 @@ export type DeckGroup = {
 export type Deck = {
   id: string
   createdAt: string
+  /** Present on practice decks; omitted for reviews. */
+  kind?: PracticeKind
   cursor: number
   cards: DeckCard[]
   groups: DeckGroup[]

@@ -14,7 +14,7 @@ function median(sorted: number[]): number {
 }
 
 function wordBuckets(points: number[]): Array<{ label: string; count: number }> {
-  // <15 ≈ never finished a full practice (3×5 min); 5/10 only appear mid-session.
+  // <15 ≈ never finished a deep practice (3×5); wide awards at most 15 per word per round.
   const labels = ["0–14", "15–29", "30–49", "50–79", "80–119", "120+"]
   const counts = [0, 0, 0, 0, 0, 0]
   for (const value of points) {

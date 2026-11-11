@@ -4,7 +4,9 @@ Personal English practice app (Next.js + MongoDB). Word list lives in external *
 
 ## Loop
 
-1. **Practice** — pick 3 weakest free words → 9 EN/ZH sentences → score each 5/10/15 → points go to the **word**.
+1. **Practice** — header **New** randomly picks a kind, then scores each line 5/10/15 → points go to the **word**:
+   - **deep** — 3 weakest free words → `/e2c` ×3 → 9 sentences (3 per word)
+   - **wide** — 9 weakest free words → `/e2c-multi` ×3 (3 words each) → 9 sentences (1 per word); falls back to deep if fewer than 9 free words
 2. **Star** — save a practice line as a favourite sentence (points start at 0).
 3. **Review** — up to 9 favourites, one per word → score again → points go to the **sentence**, and `ceil(award*2/3)` to the word.
 
@@ -13,13 +15,13 @@ Shared UI: `components/deck-session.tsx`. Domain: `lib/practices.ts`, `lib/revie
 ## Intentional (do not “fix”)
 
 - Up to **2 open practices** (`count > 1` with `MAX_OPEN_PRACTICES = 1`): do one while the next LLM generation runs.
-- Home with favourites shows only the weakest starred sentence — no Start/Continue there; use header **New** / History / Favourites.
-- History = practices only. Resume reviews from Favourites (**Continue**).
+- Home with favourites shows only the weakest starred sentence — no Start/Continue there; use header **New** / Practices / Favourites.
+- Practices list = practices only. Resume reviews from Favourites (**Continue**).
 - Result / Later need no extra CTAs; header nav is enough.
 
 ## Surfaces
 
-`/` home · `/practice/[id]` · `/review/[id]` · `/history` · `/sentences` · `/stats` · `/settings`
+`/` home · `/practice/[id]` · `/review/[id]` · `/practices` · `/sentences` · `/stats` · `/settings` · `/history` → `/practices`
 
 <!-- BEGIN:nextjs-agent-rules -->
 
