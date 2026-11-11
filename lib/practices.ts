@@ -236,24 +236,24 @@ async function createWidePractice(busyWords: Set<string>): Promise<Deck> {
       raw: generated.raw,
     })),
   }
-  const lineDocs: PracticeLineDoc[] = shuffle(
-    generatedBatches.flatMap(({ generated }) =>
+  const lineDocs: PracticeLineDoc[] = generatedBatches
+    .flatMap(({ generated }) =>
       generated.questions.map((question) => ({
         word: question.word,
         en: question.en,
         zh: question.zh,
       })),
-    ),
-  ).map((question, position) => ({
-    _id: new ObjectId(),
-    practiceId,
-    position,
-    word: question.word,
-    en: question.en,
-    zh: question.zh,
-    revealed: false,
-    award: null,
-  }))
+    )
+    .map((question, position) => ({
+      _id: new ObjectId(),
+      practiceId,
+      position,
+      word: question.word,
+      en: question.en,
+      zh: question.zh,
+      revealed: false,
+      award: null,
+    }))
 
   return persistPractice(practiceDoc, lineDocs)
 }

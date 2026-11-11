@@ -14,16 +14,17 @@ function median(sorted: number[]): number {
 }
 
 function wordBuckets(points: number[]): Array<{ label: string; count: number }> {
-  // <15 ≈ never finished a deep practice (3×5); wide awards at most 15 per word per round.
-  const labels = ["0–14", "15–29", "30–49", "50–79", "80–119", "120+"]
-  const counts = [0, 0, 0, 0, 0, 0]
+  // 0 = untouched; 1–14 includes a single wide award (5/10) before a full deep floor (3×5).
+  const labels = ["0", "1–14", "15–29", "30–49", "50–79", "80–119", "120+"]
+  const counts = [0, 0, 0, 0, 0, 0, 0]
   for (const value of points) {
-    if (value < 15) counts[0] += 1
-    else if (value < 30) counts[1] += 1
-    else if (value < 50) counts[2] += 1
-    else if (value < 80) counts[3] += 1
-    else if (value < 120) counts[4] += 1
-    else counts[5] += 1
+    if (value <= 0) counts[0] += 1
+    else if (value < 15) counts[1] += 1
+    else if (value < 30) counts[2] += 1
+    else if (value < 50) counts[3] += 1
+    else if (value < 80) counts[4] += 1
+    else if (value < 120) counts[5] += 1
+    else counts[6] += 1
   }
   return labels.map((label, index) => ({ label, count: counts[index] }))
 }
