@@ -12,7 +12,7 @@ import {
   type PracticeSummary,
   type PracticeWord,
 } from "@/lib/types"
-import { increaseWordPoints, listAllWords } from "@/lib/voc"
+import { increaseWordPoints, listLowest, type VocWord } from "@/lib/voc"
 
 const DEEP_WORDS = 3
 const WIDE_WORDS = 9
@@ -140,19 +140,13 @@ async function readDeck(doc: PracticeDoc): Promise<Deck> {
   return toDeck(doc, lines, await starredEnglish(lines))
 }
 
-type VocWord = { word: string; points: number }
-
 async function pickWords(count: number, busyWords: Set<string>): Promise<VocWord[]> {
-  const allWords = await listAllWords()
-  if (allWords.length === 0) throw new ApiError("The word list is empty. Add words in my-voc first.", 409)
-
-  const available = allWords
-    .filter((item) => !busyWords.has(item.word))
-    .sort((left, right) => left.points - right.points || left.word.localeCompare(right.word))
-  if (available.length === 0) {
-    throw new ApiError("Every word is already in an open practice", 409)
+  // points=0: read-only pick of lowest words; exclude open-practice words.
+  const lowest = await listLowest(count, 0, busyWords)
+  if (lowest.length === 0) {
+    if (busyWords.size > 0) throw new ApiError("Every word is already in an open practice", 409)
+    throw new ApiError("The word list is empty. Add words in my-voc first.", 409)
   }
-  const lowest = available.slice(0, count)
   if (lowest.length < count) {
     throw new ApiError(`Need ${count} free words to start a practice, only ${lowest.length} left`, 409)
   }

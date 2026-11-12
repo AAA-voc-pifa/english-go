@@ -1,13 +1,13 @@
 "use client"
 
-import { requestJson } from "@/lib/http"
+import { httpStatus, requestJson } from "@/lib/http"
 import type { DeckResponse, OpenPracticeResponse } from "@/lib/types"
 
 type PracticeJob =
   | { status: "idle" }
   | { status: "pending" }
   | { status: "ready"; id: string }
-  | { status: "error"; message: string }
+  | { status: "error"; message: string; code: number }
 
 const idle: PracticeJob = { status: "idle" }
 let job: PracticeJob = idle
@@ -94,6 +94,7 @@ export function startPractice() {
       job = {
         status: "error",
         message: caught instanceof Error ? caught.message : "Couldn't write the sentences",
+        code: httpStatus(caught),
       }
       emit()
     })

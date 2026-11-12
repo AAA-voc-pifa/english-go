@@ -5,12 +5,16 @@ import { useRouter } from "next/navigation"
 import {
   dismissPracticeJob,
   idlePracticeJob,
+  readOpenPracticeId,
   readPracticeJob,
+  startPractice,
+  subscribeOpenPractice,
   subscribePracticeJob,
 } from "@/lib/practice-job"
 
 export function PracticeReadyDialog() {
   const job = useSyncExternalStore(subscribePracticeJob, readPracticeJob, idlePracticeJob)
+  const openId = useSyncExternalStore(subscribeOpenPractice, readOpenPracticeId, () => null)
   const router = useRouter()
   const open = job.status === "ready" || job.status === "error"
 
@@ -65,6 +69,8 @@ export function PracticeReadyDialog() {
   }
 
   if (job.status === "error") {
+    const conflict = job.code === 409
+    const retryable = job.code === 0 || job.code >= 500
     return (
       <div className="fixed inset-0 z-30 flex items-center justify-center bg-bg/80 px-5">
         <div
@@ -74,19 +80,49 @@ export function PracticeReadyDialog() {
           className="flex w-full max-w-md flex-col gap-4 border border-line bg-panel p-6"
         >
           <h2 id="practice-ready-title" className="text-3xl tracking-tight">
-            Couldn&apos;t write the sentences
+            {conflict ? "Can't start a practice" : "Couldn't write the sentences"}
           </h2>
           <p role="alert" className="text-sm leading-6 text-hot">
             {job.message}
           </p>
-          <button
-            type="button"
-            autoFocus
-            onClick={dismissPracticeJob}
-            className="inline-flex h-10 w-fit items-center justify-center border border-line bg-panel px-4 text-sm"
-          >
-            Close
-          </button>
+          {conflict ? (
+            <p className="text-sm text-muted">
+              Finish an open practice first, or free more words in my-voc.
+            </p>
+          ) : null}
+          <div className="flex flex-wrap gap-2">
+            {retryable ? (
+              <button
+                type="button"
+                autoFocus
+                onClick={startPractice}
+                className="inline-flex h-10 items-center justify-center border border-lime bg-lime px-4 text-sm font-medium text-lime-ink"
+              >
+                Retry
+              </button>
+            ) : null}
+            {conflict && openId ? (
+              <button
+                type="button"
+                autoFocus={!retryable}
+                onClick={() => {
+                  dismissPracticeJob()
+                  router.push(`/practice/${openId}`)
+                }}
+                className="inline-flex h-10 items-center justify-center border border-lime bg-lime px-4 text-sm font-medium text-lime-ink"
+              >
+                Continue
+              </button>
+            ) : null}
+            <button
+              type="button"
+              autoFocus={!retryable && !(conflict && openId)}
+              onClick={dismissPracticeJob}
+              className="inline-flex h-10 items-center justify-center border border-line bg-panel px-4 text-sm"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
     )

@@ -1,7 +1,7 @@
 import { ApiError } from "@/lib/api-error"
 import { env } from "@/lib/env"
 
-type VocWord = {
+export type VocWord = {
   word: string
   points: number
 }
@@ -93,8 +93,14 @@ export async function verifyVocPassword(): Promise<void> {
   throw new Error(`Word list auth failed (${response.status})`)
 }
 
-export async function listLowest(count: number, points: number): Promise<VocWord[]> {
-  const body = await vocFetch(vocUrl("voc", { count: String(count), points: String(points) }), "GET")
+export async function listLowest(
+  count: number,
+  points: number,
+  exclude: Iterable<string> = [],
+): Promise<VocWord[]> {
+  const url = vocUrl("voc", { count: String(count), points: String(points) })
+  for (const word of exclude) url.searchParams.append("exclude", word)
+  const body = await vocFetch(url, "GET")
   if (!isRecord(body) || body.ok !== true || !Array.isArray(body.data)) {
     throw new ApiError("The word list response was unreadable", 502)
   }
