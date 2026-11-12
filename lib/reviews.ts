@@ -24,7 +24,6 @@ function toDeck(
       word: sentence.word,
       en: sentence.en,
       zh: sentence.zh,
-      revealed: item.revealed,
       award: item.award,
       points: points.get(key) ?? 0,
       starred: true,
@@ -127,7 +126,6 @@ export async function createReview(): Promise<Deck> {
     cursor: 0,
     items: picked.map((star) => ({
       sentenceId: star.sentenceId,
-      revealed: false,
       award: null,
     })),
   }
@@ -158,18 +156,6 @@ export async function setReviewCursor(id: string, cursor: number): Promise<Deck>
   }
   const { reviews } = await collections()
   await reviews.updateOne({ _id: doc._id }, { $set: { cursor } })
-  return getReview(id)
-}
-
-export async function setReviewRevealed(id: string, sentenceId: string, revealed: boolean): Promise<Deck> {
-  const doc = await requireReview(id)
-  const { reviews } = await collections()
-  const result = await reviews.updateOne(
-    { _id: doc._id },
-    { $set: { "items.$[item].revealed": revealed } },
-    { arrayFilters: [{ "item.sentenceId": parseId(sentenceId, "Sentence not found") }] },
-  )
-  if (result.matchedCount !== 1) throw new ApiError("Sentence not found", 404)
   return getReview(id)
 }
 

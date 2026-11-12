@@ -7,6 +7,13 @@ export type PracticeQuestionRaw = {
   raw: unknown
 }
 
+export type PracticeLine = {
+  _id: ObjectId
+  position: number
+  sentenceId: ObjectId
+  award: Award | null
+}
+
 export type PracticeDoc = {
   _id: ObjectId
   createdAt: Date
@@ -14,17 +21,9 @@ export type PracticeDoc = {
   /** Missing on legacy docs — treat as "deep". */
   kind?: PracticeKind
   words: PracticeWord[]
+  lines: PracticeLine[]
   /** LLM raw payloads from the question API; stored for records only. */
   questionRaws?: PracticeQuestionRaw[]
-}
-
-export type PracticeLineDoc = {
-  _id: ObjectId
-  practiceId: ObjectId
-  position: number
-  sentenceId: ObjectId
-  revealed: boolean
-  award: Award | null
 }
 
 /** Canonical sentence text. Every practice line points here. */
@@ -46,7 +45,6 @@ export type StarDoc = {
 
 export type ReviewItemDoc = {
   sentenceId: ObjectId
-  revealed: boolean
   award: Award | null
 }
 
@@ -59,44 +57,42 @@ export type ReviewDoc = {
 
 const LEGACY_MIGRATION_ID = "legacy-quizzes-rounds-v1"
 const STARS_MIGRATION_ID = "sentence-content-stars-v1"
+const EMBED_LINES_MIGRATION_ID = "embed-practice-lines-v1"
 
 let ready: Promise<void> | null = null
 
 export async function collections(): Promise<{
   practices: Collection<PracticeDoc>
-  practiceLines: Collection<PracticeLineDoc>
   sentences: Collection<SentenceDoc>
   stars: Collection<StarDoc>
   reviews: Collection<ReviewDoc>
 }> {
   const db = await getDb()
   const practices = db.collection<PracticeDoc>("practices")
-  const practiceLines = db.collection<PracticeLineDoc>("practice_lines")
   const sentences = db.collection<SentenceDoc>("sentences")
   const stars = db.collection<StarDoc>("stars")
   const reviews = db.collection<ReviewDoc>("reviews")
-  ready ??= prepare(db, practices, practiceLines, sentences, stars, reviews).catch((error: unknown) => {
+  ready ??= prepare(db, practices, sentences, stars, reviews).catch((error: unknown) => {
     ready = null
     throw error
   })
   await ready
-  return { practices, practiceLines, sentences, stars, reviews }
+  return { practices, sentences, stars, reviews }
 }
 
 async function prepare(
   db: Db,
   practices: Collection<PracticeDoc>,
-  practiceLines: Collection<PracticeLineDoc>,
   sentences: Collection<SentenceDoc>,
   stars: Collection<StarDoc>,
   reviews: Collection<ReviewDoc>,
 ) {
-  await migrateLegacy(db, practices, practiceLines, sentences)
-  await migrateSentenceStars(db, practiceLines, sentences, stars, reviews)
+  await migrateLegacy(db, practices, sentences)
+  await migrateSentenceStars(db, practices, sentences, stars, reviews)
+  await migrateEmbedLines(db, practices, reviews)
   await Promise.all([
     practices.createIndex({ createdAt: -1 }, { name: "createdAt_desc" }),
-    practiceLines.createIndex({ practiceId: 1, position: 1 }, { unique: true, name: "practice_position" }),
-    practiceLines.createIndex({ sentenceId: 1 }, { name: "sentenceId" }),
+    practices.createIndex({ "lines._id": 1 }, { name: "lines_id" }),
     sentences.createIndex({ en: 1 }, { unique: true, name: "en" }),
     stars.createIndex({ sentenceId: 1 }, { unique: true, name: "sentenceId" }),
     stars.createIndex({ points: 1, createdAt: 1, _id: 1 }, { name: "points_createdAt" }),
@@ -105,7 +101,7 @@ async function prepare(
   try {
     await sentences.dropIndex("points_createdAt")
   } catch {
-    // Index may already be gone after migration.
+    // Index may already be gone.
   }
 }
 
@@ -158,26 +154,16 @@ async function ensureSentenceId(
   }
 }
 
-async function migrateLegacy(
-  db: Db,
-  practices: Collection<PracticeDoc>,
-  practiceLines: Collection<PracticeLineDoc>,
-  sentences: Collection<SentenceDoc>,
-) {
+async function migrateLegacy(db: Db, practices: Collection<PracticeDoc>, sentences: Collection<SentenceDoc>) {
   const migrations = db.collection<{ _id: string }>("migrations")
   if (await migrations.findOne({ _id: LEGACY_MIGRATION_ID })) return
 
-  await migrateRounds(db, practices, practiceLines, sentences)
-  await migrateQuizzes(db, practices, practiceLines, sentences)
+  await migrateRounds(db, practices, sentences)
+  await migrateQuizzes(db, practices, sentences)
   await migrations.updateOne({ _id: LEGACY_MIGRATION_ID }, { $set: { at: new Date() } }, { upsert: true })
 }
 
-async function migrateRounds(
-  db: Db,
-  practices: Collection<PracticeDoc>,
-  practiceLines: Collection<PracticeLineDoc>,
-  sentences: Collection<SentenceDoc>,
-) {
+async function migrateRounds(db: Db, practices: Collection<PracticeDoc>, sentences: Collection<SentenceDoc>) {
   const names = await db.listCollections({ name: "rounds" }, { nameOnly: true }).toArray()
   if (names.length === 0) return
   const legacyLines = db.collection("lines")
@@ -188,10 +174,9 @@ async function migrateRounds(
     if (!words) continue
     const createdAt = raw.createdAt instanceof Date ? raw.createdAt : new Date()
     const cursor = typeof raw.cursor === "number" && Number.isInteger(raw.cursor) ? raw.cursor : 0
-    await upsertPractice(practices, raw._id, { createdAt, cursor, words })
 
     const stored = await legacyLines.find({ roundId: raw._id }).sort({ position: 1 }).toArray()
-    const lines: PracticeLineDoc[] = []
+    const lines: PracticeLine[] = []
     for (const item of stored) {
       if (!isRecord(item) || !(item._id instanceof ObjectId)) continue
       const award = readAward(item.award)
@@ -203,25 +188,13 @@ async function migrateRounds(
         en: item.en,
         zh: item.zh,
       })
-      lines.push({
-        _id: item._id,
-        practiceId: raw._id,
-        position,
-        sentenceId,
-        revealed: item.revealed === true,
-        award,
-      })
+      lines.push({ _id: item._id, position, sentenceId, award })
     }
-    await replaceLines(practiceLines, raw._id, lines)
+    await upsertPractice(practices, raw._id, { createdAt, cursor, words, lines })
   }
 }
 
-async function migrateQuizzes(
-  db: Db,
-  practices: Collection<PracticeDoc>,
-  practiceLines: Collection<PracticeLineDoc>,
-  sentences: Collection<SentenceDoc>,
-) {
+async function migrateQuizzes(db: Db, practices: Collection<PracticeDoc>, sentences: Collection<SentenceDoc>) {
   const names = await db.listCollections({ name: "quizzes" }, { nameOnly: true }).toArray()
   if (names.length === 0) return
 
@@ -232,7 +205,7 @@ async function migrateQuizzes(
     const questions = Array.isArray(raw.questions) ? raw.questions : null
     if (!words || !questions) continue
 
-    const lines: PracticeLineDoc[] = []
+    const lines: PracticeLine[] = []
     for (const item of questions) {
       if (!isRecord(item)) continue
       const award = readAward(item.award)
@@ -243,26 +216,18 @@ async function migrateQuizzes(
         en: item.en,
         zh: item.zh,
       })
-      lines.push({
-        _id: new ObjectId(),
-        practiceId: raw._id,
-        position: lines.length,
-        sentenceId,
-        revealed: item.revealed === true,
-        award,
-      })
+      lines.push({ _id: new ObjectId(), position: lines.length, sentenceId, award })
     }
 
     const createdAt = raw.createdAt instanceof Date ? raw.createdAt : new Date()
     const cursor = typeof raw.cursor === "number" && Number.isInteger(raw.cursor) ? raw.cursor : 0
-    await upsertPractice(practices, raw._id, { createdAt, cursor, words })
-    await replaceLines(practiceLines, raw._id, lines)
+    await upsertPractice(practices, raw._id, { createdAt, cursor, words, lines })
   }
 }
 
 async function migrateSentenceStars(
   db: Db,
-  practiceLines: Collection<PracticeLineDoc>,
+  practices: Collection<PracticeDoc>,
   sentences: Collection<SentenceDoc>,
   stars: Collection<StarDoc>,
   reviews: Collection<ReviewDoc>,
@@ -270,14 +235,10 @@ async function migrateSentenceStars(
   const migrations = db.collection<{ _id: string }>("migrations")
   if (await migrations.findOne({ _id: STARS_MIGRATION_ID })) return
 
-  // Unique before upserts so a crashed mid-migration cannot insert duplicate stars.
   await stars.createIndex({ sentenceId: 1 }, { unique: true, name: "sentenceId" })
 
-  // Old favourites lived in `sentences` with a `points` field.
-  // Insert/upsert the star FIRST, then drop `points` — otherwise a crash after
-  // $unset leaves a sentence with no star and the retry query skips it.
-  const legacyFavourites = db.collection("sentences")
-  for await (const raw of legacyFavourites.find({ points: { $exists: true } })) {
+  const legacySentences = db.collection("sentences")
+  for await (const raw of legacySentences.find({ points: { $exists: true } })) {
     if (!isRecord(raw) || !(raw._id instanceof ObjectId)) continue
     if (typeof raw.word !== "string" || typeof raw.en !== "string" || typeof raw.zh !== "string") continue
     const points = typeof raw.points === "number" ? raw.points : 0
@@ -304,24 +265,50 @@ async function migrateSentenceStars(
     )
   }
 
-  // Old practice lines embedded word/en/zh.
-  const legacyLines = db.collection("practice_lines")
-  for await (const raw of legacyLines.find({ sentenceId: { $exists: false } })) {
-    if (!isRecord(raw) || !(raw._id instanceof ObjectId)) continue
-    if (!(raw.practiceId instanceof ObjectId)) continue
-    if (typeof raw.word !== "string" || typeof raw.en !== "string" || typeof raw.zh !== "string") continue
-    const sentenceId = await ensureSentenceId(sentences, {
-      word: raw.word,
-      en: raw.en,
-      zh: raw.zh,
-    })
-    await practiceLines.updateOne(
-      { _id: raw._id },
-      {
-        $set: { sentenceId },
-        $unset: { word: "", en: "", zh: "" },
-      },
-    )
+  // Older DBs may still have a separate practice_lines collection.
+  const lineNames = await db.listCollections({ name: "practice_lines" }, { nameOnly: true }).toArray()
+  if (lineNames.length > 0) {
+    const legacyLines = db.collection("practice_lines")
+    for await (const raw of legacyLines.find({ sentenceId: { $exists: false } })) {
+      if (!isRecord(raw) || !(raw._id instanceof ObjectId)) continue
+      if (typeof raw.word !== "string" || typeof raw.en !== "string" || typeof raw.zh !== "string") continue
+      const sentenceId = await ensureSentenceId(sentences, {
+        word: raw.word,
+        en: raw.en,
+        zh: raw.zh,
+      })
+      await legacyLines.updateOne(
+        { _id: raw._id },
+        { $set: { sentenceId }, $unset: { word: "", en: "", zh: "" } },
+      )
+    }
+  }
+
+  // Also fix any embedded lines that somehow still carry word/en/zh (none expected).
+  const legacyPractices = db.collection("practices")
+  for await (const raw of legacyPractices.find({ "lines.en": { $exists: true } })) {
+    if (!isRecord(raw) || !(raw._id instanceof ObjectId) || !Array.isArray(raw.lines)) continue
+    const lines: PracticeLine[] = []
+    for (const item of raw.lines) {
+      if (!isRecord(item) || !(item._id instanceof ObjectId)) continue
+      const award = readAward(item.award)
+      if (award === undefined) continue
+      let sentenceId: ObjectId
+      if (item.sentenceId instanceof ObjectId) {
+        sentenceId = item.sentenceId
+      } else if (typeof item.word === "string" && typeof item.en === "string" && typeof item.zh === "string") {
+        sentenceId = await ensureSentenceId(sentences, {
+          word: item.word,
+          en: item.en,
+          zh: item.zh,
+        })
+      } else {
+        continue
+      }
+      const position = typeof item.position === "number" ? item.position : lines.length
+      lines.push({ _id: item._id, position, sentenceId, award })
+    }
+    await practices.updateOne({ _id: raw._id }, { $set: { lines } })
   }
 
   for await (const raw of reviews.find()) {
@@ -331,11 +318,7 @@ async function migrateSentenceStars(
       if (!isRecord(item) || !(item.sentenceId instanceof ObjectId)) continue
       const award = readAward(item.award)
       if (award === undefined) continue
-      items.push({
-        sentenceId: item.sentenceId,
-        revealed: item.revealed === true,
-        award,
-      })
+      items.push({ sentenceId: item.sentenceId, award })
     }
     await reviews.updateOne({ _id: raw._id }, { $set: { items } })
   }
@@ -343,25 +326,62 @@ async function migrateSentenceStars(
   await migrations.updateOne({ _id: STARS_MIGRATION_ID }, { $set: { at: new Date() } }, { upsert: true })
 }
 
+async function migrateEmbedLines(db: Db, practices: Collection<PracticeDoc>, reviews: Collection<ReviewDoc>) {
+  const migrations = db.collection<{ _id: string }>("migrations")
+  if (await migrations.findOne({ _id: EMBED_LINES_MIGRATION_ID })) return
+
+  const lineNames = await db.listCollections({ name: "practice_lines" }, { nameOnly: true }).toArray()
+  const legacyLines = lineNames.length > 0 ? db.collection("practice_lines") : null
+
+  for await (const practice of practices.find({})) {
+    let lines: PracticeLine[] = []
+    if (Array.isArray(practice.lines) && practice.lines.length > 0) {
+      for (const item of practice.lines) {
+        if (!isRecord(item) || !(item._id instanceof ObjectId)) continue
+        if (!(item.sentenceId instanceof ObjectId)) continue
+        const award = readAward(item.award)
+        if (award === undefined) continue
+        const position = typeof item.position === "number" ? item.position : lines.length
+        lines.push({ _id: item._id, position, sentenceId: item.sentenceId, award })
+      }
+    } else if (legacyLines) {
+      const stored = await legacyLines.find({ practiceId: practice._id }).sort({ position: 1 }).toArray()
+      for (const item of stored) {
+        if (!isRecord(item) || !(item._id instanceof ObjectId)) continue
+        if (!(item.sentenceId instanceof ObjectId)) continue
+        const award = readAward(item.award)
+        if (award === undefined) continue
+        const position = typeof item.position === "number" ? item.position : lines.length
+        lines.push({ _id: item._id, position, sentenceId: item.sentenceId, award })
+      }
+    }
+    await practices.updateOne({ _id: practice._id }, { $set: { lines } })
+  }
+
+  if (legacyLines) await legacyLines.drop()
+
+  for await (const raw of reviews.find()) {
+    if (!isRecord(raw) || !(raw._id instanceof ObjectId) || !Array.isArray(raw.items)) continue
+    const items: ReviewItemDoc[] = []
+    for (const item of raw.items) {
+      if (!isRecord(item) || !(item.sentenceId instanceof ObjectId)) continue
+      const award = readAward(item.award)
+      if (award === undefined) continue
+      items.push({ sentenceId: item.sentenceId, award })
+    }
+    await reviews.updateOne({ _id: raw._id }, { $set: { items } })
+  }
+
+  await migrations.updateOne({ _id: EMBED_LINES_MIGRATION_ID }, { $set: { at: new Date() } }, { upsert: true })
+}
+
 async function upsertPractice(
   practices: Collection<PracticeDoc>,
   id: ObjectId,
-  doc: { createdAt: Date; cursor: number; words: PracticeWord[] },
+  doc: { createdAt: Date; cursor: number; words: PracticeWord[]; lines: PracticeLine[] },
 ) {
   try {
     await practices.updateOne({ _id: id }, { $setOnInsert: doc }, { upsert: true })
-  } catch (error) {
-    if (!isDuplicate(error)) throw error
-  }
-}
-
-async function replaceLines(practiceLines: Collection<PracticeLineDoc>, practiceId: ObjectId, lines: PracticeLineDoc[]) {
-  const existing = await practiceLines.countDocuments({ practiceId })
-  if (existing === lines.length) return
-  if (existing > 0) await practiceLines.deleteMany({ practiceId })
-  if (lines.length === 0) return
-  try {
-    await practiceLines.insertMany(lines)
   } catch (error) {
     if (!isDuplicate(error)) throw error
   }

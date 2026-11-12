@@ -2,6 +2,15 @@
 
 Personal English practice app (Next.js + MongoDB). Word list lives in external **my-voc**; this app generates sentences, scores them, stars favourites, and reviews.
 
+## Development stance
+
+This project stays in **active development** (solo / personal). Prefer **logically elegant** models and code over production-hardening defaults:
+
+- Do not refuse clean refactors because a migration might lose data or be hard to roll back.
+- Breaking schema changes and one-shot migrations are fine; restore from scratch or re-practice if needed.
+- Choose the clearer domain shape even when a “safer / more practical” shortcut would work.
+- Still fix real bugs and keep behaviour coherent — elegance is not an excuse for broken logic.
+
 ## Loop
 
 1. **Practice** — header **New** randomly picks a kind, then scores each line 5/10/15 → points go to the **word**:
@@ -12,7 +21,7 @@ Personal English practice app (Next.js + MongoDB). Word list lives in external *
 
 Shared UI: `components/deck-session.tsx`. Domain: `lib/practices.ts`, `lib/reviews.ts`, `lib/stars.ts`, `lib/sentence-content.ts`, `lib/voc.ts`.
 
-Data: `sentences` = word/en/zh · `stars` = sentenceId + review points · `practice_lines` / `reviews` reference `sentenceId` only.
+Data: `sentences` = word/en/zh · `stars` = sentenceId + review points · `practices.lines` / `reviews.items` reference `sentenceId` only (no `revealed`).
 
 ## Intentional (do not “fix”)
 

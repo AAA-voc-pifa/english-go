@@ -30,7 +30,6 @@ export type DeckCard = {
   word: string
   en: string
   zh: string
-  revealed: boolean
   award: Award | null
   points: number
   starred: boolean

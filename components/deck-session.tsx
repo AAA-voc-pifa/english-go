@@ -11,28 +11,6 @@ import { requestJson } from "@/lib/http"
 import { refreshOpenPractice } from "@/lib/practice-job"
 import type { AppSettings, Award, Deck, DeckCard, DeckResponse, SettingsResponse } from "@/lib/types"
 
-function keepCursor(current: Deck | null, next: Deck): Deck {
-  if (!current || current.id !== next.id) return next
-  return { ...next, cursor: current.cursor }
-}
-
-function mergeAwards(current: Deck, incoming: Deck): Deck {
-  if (current.id !== incoming.id) return incoming
-  const local = new Map(current.cards.map((card) => [card.id, card]))
-  return {
-    ...incoming,
-    cards: incoming.cards.map((card) => {
-      const previous = local.get(card.id)
-      if (!previous) return card
-      return {
-        ...card,
-        award: previous.award ?? card.award,
-        starred: previous.starred || card.starred,
-      }
-    }),
-  }
-}
-
 function takeScores(current: Deck, incoming: Deck): Deck {
   if (current.id !== incoming.id) return current
   const cardPoints = new Map(incoming.cards.map((card) => [card.id, card.points]))
@@ -173,25 +151,6 @@ export function DeckSession({
     })
   }
 
-  async function toggleReveal(current: Deck, item: DeckCard) {
-    const revealed = !item.revealed
-    setActionError(null)
-    setDeck({
-      ...current,
-      cards: current.cards.map((entry) => (entry.id === item.id ? { ...entry, revealed } : entry)),
-    })
-    try {
-      const data = await requestJson<DeckResponse>(endpoint(kind, current.id, item.id), {
-        method: "PATCH",
-        body: JSON.stringify({ revealed }),
-      })
-      setDeck((latest) => (latest ? keepCursor(latest, mergeAwards(latest, data.deck)) : latest))
-    } catch (error) {
-      setDeck(current)
-      setActionError(error instanceof Error ? error.message : "Couldn't save the translation")
-    }
-  }
-
   function award(item: DeckCard, points: Award) {
     if (item.award !== null || scoring.current.has(item.id)) return
     scoring.current.add(item.id)
@@ -305,11 +264,9 @@ export function DeckSession({
           <div className="mt-8">
             <Sentence en={card.en} word={card.word} />
           </div>
-          {card.revealed ? (
-            <p lang="zh-CN" className="mt-8 max-w-2xl border-t border-line pt-5 text-lg leading-8 text-ink">
-              {card.zh}
-            </p>
-          ) : null}
+          <p lang="zh-CN" className="mt-8 max-w-2xl border-t border-line pt-5 text-lg leading-8 text-ink">
+            {card.zh}
+          </p>
         </article>
       </div>
       {soundError ? (
@@ -327,14 +284,12 @@ export function DeckSession({
         canNext={card.award !== null && deck.cursor < deck.cards.length - 1}
         speechLabel={speechLabel(card.id, target, phase)}
         speechPending={phase === "loading"}
-        revealed={card.revealed}
         award={card.award}
         starred={card.starred}
         starPending={starPending}
         onPrev={() => move(deck.cursor - 1)}
         onNext={() => move(deck.cursor + 1)}
         onSpeak={() => void play(card.id)}
-        onReveal={() => void toggleReveal(deck, card)}
         onAward={(points) => void award(card, points)}
         onStar={kind === "practice" ? () => void star(card) : undefined}
         scoreLabel={kind === "review" ? "Add points to this sentence" : "Add points to this word"}

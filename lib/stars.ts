@@ -1,6 +1,6 @@
 import { ObjectId } from "mongodb"
 import { ApiError } from "@/lib/api-error"
-import { parseId } from "@/lib/practices"
+import { findPracticeLine, parseId } from "@/lib/practices"
 import { requireSentence } from "@/lib/sentence-content"
 import { collections, type SentenceDoc, type StarDoc } from "@/lib/store"
 import type { StarredSentence } from "@/lib/types"
@@ -59,11 +59,11 @@ export async function listStars(
 }
 
 export async function starPracticeLine(lineId: string): Promise<StarredSentence> {
-  const { practiceLines, stars } = await collections()
-  const line = await practiceLines.findOne({ _id: parseId(lineId, "Sentence not found") })
-  if (!line) throw new ApiError("Sentence not found", 404)
+  const { stars } = await collections()
+  const found = await findPracticeLine(lineId)
+  if (!found) throw new ApiError("Sentence not found", 404)
 
-  const sentence = await requireSentence(line.sentenceId)
+  const sentence = await requireSentence(found.line.sentenceId)
   const existing = await stars.findOne({ sentenceId: sentence._id })
   if (existing) return toStarred(existing, sentence)
 

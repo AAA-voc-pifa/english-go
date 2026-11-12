@@ -45,10 +45,7 @@ function sentenceBuckets(points: number[]): Array<{ label: string; count: number
 }
 
 export async function getStats(): Promise<StatsSnapshot> {
-  const [{ practices, practiceLines, stars, reviews }, words] = await Promise.all([
-    collections(),
-    listAllWords(),
-  ])
+  const [{ practices, stars, reviews }, words] = await Promise.all([collections(), listAllWords()])
 
   const pointValues = words
     .slice()
@@ -56,34 +53,28 @@ export async function getStats(): Promise<StatsSnapshot> {
     .map((item) => item.points)
   const totalPoints = pointValues.reduce((sum, value) => sum + value, 0)
 
-  const [practiceDocs, lineDocs, favourites, reviewDocs] = await Promise.all([
-    practices.find({}, { projection: { _id: 1 } }).toArray(),
-    practiceLines.find({}, { projection: { practiceId: 1, award: 1 } }).toArray(),
+  const [practiceDocs, favourites, reviewDocs] = await Promise.all([
+    practices.find({}, { projection: { lines: 1 } }).toArray(),
     stars.find({}, { projection: { points: 1 } }).toArray(),
     reviews.find({}, { projection: { items: 1 } }).toArray(),
   ])
-
-  const byPractice = new Map<string, { total: number; answered: number; gained: number }>()
-  for (const line of lineDocs) {
-    const key = line.practiceId.toHexString()
-    const current = byPractice.get(key) ?? { total: 0, answered: 0, gained: 0 }
-    current.total += 1
-    if (line.award !== null) {
-      current.answered += 1
-      current.gained += line.award as Award
-    }
-    byPractice.set(key, current)
-  }
 
   let completedPractices = 0
   let sentencesScored = 0
   let pointsEarned = 0
   for (const practice of practiceDocs) {
-    const stat = byPractice.get(practice._id.toHexString())
-    if (!stat) continue
-    sentencesScored += stat.answered
-    pointsEarned += stat.gained
-    if (stat.total > 0 && stat.answered === stat.total) completedPractices += 1
+    const lines = practice.lines ?? []
+    if (lines.length === 0) continue
+    let answered = 0
+    let gained = 0
+    for (const line of lines) {
+      if (line.award === null) continue
+      answered += 1
+      gained += line.award as Award
+    }
+    sentencesScored += answered
+    pointsEarned += gained
+    if (answered === lines.length) completedPractices += 1
   }
 
   let reviewCompleted = 0

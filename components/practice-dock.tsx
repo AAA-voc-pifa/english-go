@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Languages, Star, Volume2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Star, Volume2 } from "lucide-react"
 import { KeyButton } from "@/components/key-button"
 import { AWARD_LABEL, type Award } from "@/lib/types"
 
@@ -13,14 +13,12 @@ export function PracticeDock({
   canNext,
   speechLabel,
   speechPending,
-  revealed,
   award,
   starred,
   starPending,
   onPrev,
   onNext,
   onSpeak,
-  onReveal,
   onAward,
   onStar,
   scoreLabel,
@@ -29,14 +27,12 @@ export function PracticeDock({
   canNext: boolean
   speechLabel: string
   speechPending: boolean
-  revealed: boolean
   award: Award | null
   starred?: boolean
   starPending?: boolean
   onPrev: () => void
   onNext: () => void
   onSpeak: () => void
-  onReveal: () => void
   onAward: (points: Award) => void
   onStar?: () => void
   scoreLabel: string
@@ -44,7 +40,7 @@ export function PracticeDock({
   return (
     <div className="sticky bottom-0 z-10 border-t border-line bg-bg/95 backdrop-blur pb-[env(safe-area-inset-bottom)]">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:px-4 sm:py-3">
-        <div className="order-2 grid grid-cols-5 gap-1.5 sm:order-none sm:contents">
+        <div className="order-2 grid grid-cols-4 gap-1.5 sm:order-none sm:contents">
           <KeyButton shortcut="j" onClick={onPrev} disabled={!canPrev} className="h-11 w-full px-0 sm:h-10 sm:w-auto sm:px-3">
             <ChevronLeft aria-hidden="true" className="size-5 sm:hidden" />
             <span className="max-sm:sr-only">Previous</span>
@@ -57,10 +53,6 @@ export function PracticeDock({
           <KeyButton shortcut="p" onClick={onSpeak} disabled={speechPending} className="h-11 w-full px-0 sm:h-10 sm:w-auto sm:px-3">
             <Volume2 aria-hidden="true" className="size-5 sm:hidden" />
             <span className="max-sm:sr-only sm:inline">{speechLabel}</span>
-          </KeyButton>
-          <KeyButton shortcut="r" onClick={onReveal} pressed={revealed} className="h-11 w-full px-0 sm:h-10 sm:w-auto sm:px-3">
-            <Languages aria-hidden="true" className="size-5 sm:hidden" />
-            <span className="max-sm:sr-only">{revealed ? "Hide" : "Translation"}</span>
           </KeyButton>
           {onStar ? (
             <KeyButton
