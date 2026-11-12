@@ -5,7 +5,6 @@ import { ensureSentence, sentencesByIds } from "@/lib/sentence-content"
 import { collections, type PracticeDoc, type PracticeLine, type SentenceDoc } from "@/lib/store"
 import {
   isAward,
-  type Award,
   type Deck,
   type DeckCard,
   type DeckGroup,
@@ -20,12 +19,8 @@ const WIDE_WORDS = 9
 const WIDE_BATCH = 3
 const MAX_OPEN_PRACTICES = 1
 
-function practiceKind(doc: PracticeDoc): PracticeKind {
-  return doc.kind === "wide" ? "wide" : "deep"
-}
-
 function sortedLines(doc: PracticeDoc): PracticeLine[] {
-  return (doc.lines ?? []).slice().sort((left, right) => left.position - right.position)
+  return doc.lines.slice().sort((left, right) => left.position - right.position)
 }
 
 async function openPracticeState(): Promise<{
@@ -34,18 +29,15 @@ async function openPracticeState(): Promise<{
   openIds: string[]
 }> {
   const { practices } = await collections()
-  const docs = await practices
-    .find({}, { projection: { _id: 1, words: 1, lines: 1, createdAt: 1 }, sort: { createdAt: 1, _id: 1 } })
-    .toArray()
+  const docs = await practices.findMany({}, { sort: { createdAt: 1, _id: 1 } })
   if (docs.length === 0) return { count: 0, busyWords: new Set(), openIds: [] }
 
   const busyWords = new Set<string>()
   const openIds: string[] = []
   for (const doc of docs) {
-    const lines = doc.lines ?? []
-    if (lines.length === 0) continue
-    const answered = lines.filter((line) => line.award !== null).length
-    if (answered >= lines.length) continue
+    if (doc.lines.length === 0) continue
+    const answered = doc.lines.filter((line) => line.award !== null).length
+    if (answered >= doc.lines.length) continue
     openIds.push(doc._id.toHexString())
     for (const word of doc.words) busyWords.add(word.word)
   }
@@ -83,10 +75,7 @@ async function requirePractice(id: string): Promise<PracticeDoc> {
 async function starredSentenceIds(sentenceIds: ObjectId[]): Promise<Set<string>> {
   if (sentenceIds.length === 0) return new Set()
   const { stars } = await collections()
-  const docs = await stars
-    .find({ sentenceId: { $in: sentenceIds } })
-    .project<{ sentenceId: ObjectId }>({ sentenceId: 1 })
-    .toArray()
+  const docs = await stars.findMany({ sentenceId: { $in: sentenceIds } })
   return new Set(docs.map((doc) => doc.sentenceId.toHexString()))
 }
 
@@ -122,7 +111,7 @@ function toDeck(
   return {
     id: doc._id.toHexString(),
     createdAt: doc.createdAt.toISOString(),
-    kind: practiceKind(doc),
+    kind: doc.kind,
     cursor: Math.min(Math.max(doc.cursor, 0), last),
     cards,
     groups,
@@ -279,7 +268,7 @@ export async function listPractices(
   const filter: Record<string, unknown> = {}
   if (cursor) {
     const anchorId = parseId(cursor, "Invalid cursor")
-    const anchor = await practices.findOne({ _id: anchorId }, { projection: { createdAt: 1 } })
+    const anchor = await practices.findOne({ _id: anchorId })
     if (!anchor) return { practices: [], nextCursor: null }
     filter.$or = [
       { createdAt: { $lt: anchor.createdAt } },
@@ -287,17 +276,14 @@ export async function listPractices(
     ]
   }
 
-  const docs = await practices
-    .find(filter, { sort: { createdAt: -1, _id: -1 }, limit: pageSize + 1 })
-    .toArray()
+  const docs = await practices.findMany(filter, { sort: { createdAt: -1, _id: -1 }, limit: pageSize + 1 })
   const page = docs.slice(0, pageSize)
   if (page.length === 0) return { practices: [], nextCursor: null }
 
   const summaries = page.map((doc) => {
-    const lines = doc.lines ?? []
     let answered = 0
     let gained = 0
-    for (const line of lines) {
+    for (const line of doc.lines) {
       if (line.award === null) continue
       answered += 1
       gained += line.award
@@ -305,10 +291,10 @@ export async function listPractices(
     return {
       id: doc._id.toHexString(),
       createdAt: doc.createdAt.toISOString(),
-      kind: practiceKind(doc),
+      kind: doc.kind,
       words: doc.words,
       answered,
-      total: lines.length,
+      total: doc.lines.length,
       gained,
     }
   })
@@ -330,7 +316,7 @@ export async function findPracticeLine(lineId: string): Promise<{
   const objectId = parseId(lineId, "Sentence not found")
   const practice = await practices.findOne({ "lines._id": objectId })
   if (!practice) return null
-  const line = (practice.lines ?? []).find((entry) => entry._id.equals(objectId))
+  const line = practice.lines.find((entry) => entry._id.equals(objectId))
   if (!line) return null
   return { practice, line }
 }
@@ -340,10 +326,10 @@ export async function cardSentence(id: string): Promise<string> {
   const objectId = parseId(id, "That sentence isn't here")
   const found = await findPracticeLine(id).catch(() => null)
   if (found) {
-    const sentence = await sentences.findOne({ _id: found.line.sentenceId }, { projection: { en: 1 } })
+    const sentence = await sentences.findOne({ _id: found.line.sentenceId })
     if (sentence?.en) return sentence.en
   }
-  const sentence = await sentences.findOne({ _id: objectId }, { projection: { en: 1 } })
+  const sentence = await sentences.findOne({ _id: objectId })
   if (sentence?.en) return sentence.en
   throw new ApiError("That sentence isn't here", 404)
 }
@@ -364,7 +350,7 @@ export async function awardPracticeLine(id: string, lineId: string, award: numbe
   const doc = await requirePractice(id)
   const { practices } = await collections()
   const lineObjectId = parseId(lineId, "Sentence not found")
-  const line = (doc.lines ?? []).find((entry) => entry._id.equals(lineObjectId))
+  const line = doc.lines.find((entry) => entry._id.equals(lineObjectId))
   if (!line) throw new ApiError("Sentence not found", 404)
   if (line.award !== null) throw new ApiError("Already scored", 409)
 

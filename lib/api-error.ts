@@ -1,3 +1,5 @@
+import { z } from "zod"
+
 export class ApiError extends Error {
   readonly status: number
 
@@ -10,6 +12,10 @@ export class ApiError extends Error {
 
 export function asApiError(error: unknown): ApiError {
   if (error instanceof ApiError) return error
+  if (error instanceof z.ZodError) {
+    const detail = z.prettifyError(error).replace(/\s+/g, " ").trim()
+    return new ApiError(`Corrupt data: ${detail}`, 500)
+  }
   if (error instanceof Error && error.name === "TimeoutError") {
     return new ApiError("The request timed out", 504)
   }

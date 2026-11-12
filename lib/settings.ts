@@ -1,16 +1,10 @@
-import type { Collection } from "mongodb"
 import { ApiError } from "@/lib/api-error"
+import { parseDoc, settingsSchema, type SettingsDoc } from "@/lib/db-schema"
 import { getDb } from "@/lib/mongo"
 import { DEFAULT_RATE, DEFAULT_VOICE, isRate, isVoiceId } from "@/lib/speech"
 import type { AppSettings } from "@/lib/types"
 import { voiceExists } from "@/lib/tts"
-
-type SettingsDoc = {
-  _id: "app"
-  autoSpeak: boolean
-  voice: string
-  rate: string
-}
+import { validatedCollection } from "@/lib/validated-collection"
 
 const DEFAULTS: AppSettings = {
   autoSpeak: false,
@@ -18,22 +12,22 @@ const DEFAULTS: AppSettings = {
   rate: DEFAULT_RATE,
 }
 
-async function collection(): Promise<Collection<SettingsDoc>> {
+async function settings() {
   const db = await getDb()
-  return db.collection<SettingsDoc>("settings")
+  return validatedCollection(db.collection<SettingsDoc>("settings"), settingsSchema, "settings")
 }
 
 function toSettings(doc: SettingsDoc | null): AppSettings {
   if (!doc) return DEFAULTS
   return {
-    autoSpeak: doc.autoSpeak === true,
-    voice: typeof doc.voice === "string" && isVoiceId(doc.voice) ? doc.voice : DEFAULT_VOICE,
+    autoSpeak: doc.autoSpeak,
+    voice: isVoiceId(doc.voice) ? doc.voice : DEFAULT_VOICE,
     rate: isRate(doc.rate) ? doc.rate : DEFAULT_RATE,
   }
 }
 
 export async function getSettings(): Promise<AppSettings> {
-  const doc = await (await collection()).findOne({ _id: "app" })
+  const doc = await (await settings()).findOne({ _id: "app" })
   return toSettings(doc)
 }
 
@@ -54,9 +48,14 @@ export async function updateSettings(patch: {
     next.rate = patch.rate
   }
 
-  await (await collection()).updateOne(
+  const doc = parseDoc(
+    settingsSchema,
+    { _id: "app" as const, autoSpeak: next.autoSpeak, voice: next.voice, rate: next.rate },
+    "settings",
+  )
+  await (await settings()).updateOne(
     { _id: "app" },
-    { $set: { autoSpeak: next.autoSpeak, voice: next.voice, rate: next.rate } },
+    { $set: { autoSpeak: doc.autoSpeak, voice: doc.voice, rate: doc.rate } },
     { upsert: true },
   )
   return next

@@ -36,7 +36,7 @@ export async function ensureSentence(input: {
 export async function sentencesByIds(ids: ObjectId[]): Promise<Map<string, SentenceDoc>> {
   if (ids.length === 0) return new Map()
   const { sentences } = await collections()
-  const docs = await sentences.find({ _id: { $in: ids } }).toArray()
+  const docs = await sentences.findMany({ _id: { $in: ids } })
   return new Map(docs.map((doc) => [doc._id.toHexString(), doc]))
 }
 

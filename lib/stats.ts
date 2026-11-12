@@ -1,5 +1,5 @@
 import { collections } from "@/lib/store"
-import type { Award, StatsSnapshot } from "@/lib/types"
+import type { StatsSnapshot } from "@/lib/types"
 import { listAllWords } from "@/lib/voc"
 
 function round1(value: number): number {
@@ -54,27 +54,26 @@ export async function getStats(): Promise<StatsSnapshot> {
   const totalPoints = pointValues.reduce((sum, value) => sum + value, 0)
 
   const [practiceDocs, favourites, reviewDocs] = await Promise.all([
-    practices.find({}, { projection: { lines: 1 } }).toArray(),
-    stars.find({}, { projection: { points: 1 } }).toArray(),
-    reviews.find({}, { projection: { items: 1 } }).toArray(),
+    practices.findMany({}),
+    stars.findMany({}),
+    reviews.findMany({}),
   ])
 
   let completedPractices = 0
   let sentencesScored = 0
   let pointsEarned = 0
   for (const practice of practiceDocs) {
-    const lines = practice.lines ?? []
-    if (lines.length === 0) continue
+    if (practice.lines.length === 0) continue
     let answered = 0
     let gained = 0
-    for (const line of lines) {
+    for (const line of practice.lines) {
       if (line.award === null) continue
       answered += 1
-      gained += line.award as Award
+      gained += line.award
     }
     sentencesScored += answered
     pointsEarned += gained
-    if (answered === lines.length) completedPractices += 1
+    if (answered === practice.lines.length) completedPractices += 1
   }
 
   let reviewCompleted = 0

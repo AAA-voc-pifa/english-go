@@ -55,17 +55,16 @@ async function pruneUnstarred(doc: ReviewDoc): Promise<ReviewDoc> {
   if (doc.items.length === 0) return doc
   const { stars, reviews } = await collections()
   const ids = doc.items.map((item) => item.sentenceId)
-  const found = await stars
-    .find({ sentenceId: { $in: ids } })
-    .project<{ sentenceId: ObjectId }>({ sentenceId: 1 })
-    .toArray()
+  const found = await stars.findMany({ sentenceId: { $in: ids } })
   const alive = new Set(found.map((entry) => entry.sentenceId.toHexString()))
   if (alive.size === doc.items.length) return doc
 
   const items = doc.items.filter((item) => alive.has(item.sentenceId.toHexString()))
   const cursor = items.length === 0 ? 0 : Math.min(doc.cursor, items.length - 1)
   await reviews.updateOne({ _id: doc._id }, { $set: { items, cursor } })
-  return { ...doc, items, cursor }
+  const next = await reviews.findOne({ _id: doc._id })
+  if (!next) throw new ApiError("Review not found", 404)
+  return next
 }
 
 async function readDeck(doc: ReviewDoc): Promise<Deck> {
@@ -75,7 +74,7 @@ async function readDeck(doc: ReviewDoc): Promise<Deck> {
     sentencesByIds(ids),
     ids.length === 0
       ? Promise.resolve([] as StarDoc[])
-      : collections().then(({ stars }) => stars.find({ sentenceId: { $in: ids } }).toArray()),
+      : collections().then(({ stars }) => stars.findMany({ sentenceId: { $in: ids } })),
   ])
   const content = new Map(
     [...sentenceMap.entries()].map(([key, sentence]) => [
@@ -93,7 +92,7 @@ function isOpenReview(doc: ReviewDoc): boolean {
 
 async function findOpenReview(): Promise<ReviewDoc | null> {
   const { reviews } = await collections()
-  const docs = await reviews.find({}, { sort: { createdAt: -1 } }).toArray()
+  const docs = await reviews.findMany({}, { sort: { createdAt: -1 } })
   for (const doc of docs) {
     const pruned = await pruneUnstarred(doc)
     if (isOpenReview(pruned)) return pruned
@@ -106,7 +105,7 @@ export async function createReview(): Promise<Deck> {
   if (open) return readDeck(open)
 
   const { stars, reviews } = await collections()
-  const candidates = await stars.find({}, { sort: { points: 1, createdAt: 1 } }).toArray()
+  const candidates = await stars.findMany({}, { sort: { points: 1, createdAt: 1 } })
   const sentenceMap = await sentencesByIds(candidates.map((star) => star.sentenceId))
   const picked: StarDoc[] = []
   const seenWords = new Set<string>()
@@ -135,7 +134,7 @@ export async function createReview(): Promise<Deck> {
 
 export async function listReviews(limit = 20): Promise<ReviewSummary[]> {
   const { reviews } = await collections()
-  const docs = await reviews.find({}, { sort: { createdAt: -1 }, limit }).toArray()
+  const docs = await reviews.findMany({}, { sort: { createdAt: -1 }, limit })
   const pruned = await Promise.all(docs.map(pruneUnstarred))
   return pruned.map((doc) => ({
     id: doc._id.toHexString(),

@@ -26,7 +26,7 @@ export async function listStars(
   const filter: Record<string, unknown> = {}
   if (cursor) {
     const anchorId = parseId(cursor, "Invalid cursor")
-    const anchor = await stars.findOne({ _id: anchorId }, { projection: { points: 1, createdAt: 1 } })
+    const anchor = await stars.findOne({ _id: anchorId })
     if (!anchor) return { sentences: [], nextCursor: null }
     filter.$or = [
       { points: { $gt: anchor.points } },
@@ -35,15 +35,11 @@ export async function listStars(
     ]
   }
 
-  const docs = await stars
-    .find(filter, { sort: { points: 1, createdAt: 1, _id: 1 }, limit: pageSize + 1 })
-    .toArray()
+  const docs = await stars.findMany(filter, { sort: { points: 1, createdAt: 1, _id: 1 }, limit: pageSize + 1 })
   const page = docs.slice(0, pageSize)
   if (page.length === 0) return { sentences: [], nextCursor: null }
 
-  const sentenceDocs = await sentences
-    .find({ _id: { $in: page.map((star) => star.sentenceId) } })
-    .toArray()
+  const sentenceDocs = await sentences.findMany({ _id: { $in: page.map((star) => star.sentenceId) } })
   const byId = new Map(sentenceDocs.map((doc) => [doc._id.toHexString(), doc]))
   const starred: StarredSentence[] = []
   for (const star of page) {
@@ -93,7 +89,7 @@ export async function deleteStar(id: string): Promise<void> {
   if (result.deletedCount !== 1) throw new ApiError("Sentence not found", 404)
 
   const sentenceId = star.sentenceId
-  const affected = await reviews.find({ "items.sentenceId": sentenceId }).toArray()
+  const affected = await reviews.findMany({ "items.sentenceId": sentenceId })
   await Promise.all(
     affected.map((doc) => {
       const items = doc.items.filter((item) => !item.sentenceId.equals(sentenceId))

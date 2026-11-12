@@ -1,83 +1,63 @@
 import { MongoServerError, ObjectId, type Collection, type Db } from "mongodb"
+import {
+  practiceSchema,
+  reviewSchema,
+  sentenceSchema,
+  starSchema,
+  type PracticeDoc,
+  type PracticeLine,
+  type PracticeQuestionRaw,
+  type ReviewDoc,
+  type ReviewItemDoc,
+  type SentenceDoc,
+  type StarDoc,
+} from "@/lib/db-schema"
 import { getDb } from "@/lib/mongo"
-import { isAward, type Award, type PracticeKind, type PracticeWord } from "@/lib/types"
+import { isAward, type Award, type PracticeWord } from "@/lib/types"
+import { validatedCollection, type DocCollection } from "@/lib/validated-collection"
 
-export type PracticeQuestionRaw = {
-  words: string[]
-  raw: unknown
-}
-
-export type PracticeLine = {
-  _id: ObjectId
-  position: number
-  sentenceId: ObjectId
-  award: Award | null
-}
-
-export type PracticeDoc = {
-  _id: ObjectId
-  createdAt: Date
-  cursor: number
-  /** Missing on legacy docs — treat as "deep". */
-  kind?: PracticeKind
-  words: PracticeWord[]
-  lines: PracticeLine[]
-  /** LLM raw payloads from the question API; stored for records only. */
-  questionRaws?: PracticeQuestionRaw[]
-}
-
-/** Canonical sentence text. Every practice line points here. */
-export type SentenceDoc = {
-  _id: ObjectId
-  word: string
-  en: string
-  zh: string
-  createdAt: Date
-}
-
-/** Favourite / review progress for a sentence. */
-export type StarDoc = {
-  _id: ObjectId
-  sentenceId: ObjectId
-  points: number
-  createdAt: Date
-}
-
-export type ReviewItemDoc = {
-  sentenceId: ObjectId
-  award: Award | null
-}
-
-export type ReviewDoc = {
-  _id: ObjectId
-  createdAt: Date
-  cursor: number
-  items: ReviewItemDoc[]
+export type {
+  PracticeDoc,
+  PracticeLine,
+  PracticeQuestionRaw,
+  ReviewDoc,
+  ReviewItemDoc,
+  SentenceDoc,
+  StarDoc,
 }
 
 const LEGACY_MIGRATION_ID = "legacy-quizzes-rounds-v1"
 const STARS_MIGRATION_ID = "sentence-content-stars-v1"
 const EMBED_LINES_MIGRATION_ID = "embed-practice-lines-v1"
+const PRACTICE_KIND_MIGRATION_ID = "practice-kind-v1"
+const QUESTION_RAWS_WORDS_MIGRATION_ID = "question-raws-words-v1"
+
+export type AppCollections = {
+  practices: DocCollection<PracticeDoc>
+  sentences: DocCollection<SentenceDoc>
+  stars: DocCollection<StarDoc>
+  reviews: DocCollection<ReviewDoc>
+}
 
 let ready: Promise<void> | null = null
 
-export async function collections(): Promise<{
-  practices: Collection<PracticeDoc>
-  sentences: Collection<SentenceDoc>
-  stars: Collection<StarDoc>
-  reviews: Collection<ReviewDoc>
-}> {
+export async function collections(): Promise<AppCollections> {
   const db = await getDb()
-  const practices = db.collection<PracticeDoc>("practices")
-  const sentences = db.collection<SentenceDoc>("sentences")
-  const stars = db.collection<StarDoc>("stars")
-  const reviews = db.collection<ReviewDoc>("reviews")
-  ready ??= prepare(db, practices, sentences, stars, reviews).catch((error: unknown) => {
+  const practicesRaw = db.collection<PracticeDoc>("practices")
+  const sentencesRaw = db.collection<SentenceDoc>("sentences")
+  const starsRaw = db.collection<StarDoc>("stars")
+  const reviewsRaw = db.collection<ReviewDoc>("reviews")
+  ready ??= prepare(db, practicesRaw, sentencesRaw, starsRaw, reviewsRaw).catch((error: unknown) => {
     ready = null
     throw error
   })
   await ready
-  return { practices, sentences, stars, reviews }
+  return {
+    practices: validatedCollection(practicesRaw, practiceSchema, "practice"),
+    sentences: validatedCollection(sentencesRaw, sentenceSchema, "sentence"),
+    stars: validatedCollection(starsRaw, starSchema, "star"),
+    reviews: validatedCollection(reviewsRaw, reviewSchema, "review"),
+  }
 }
 
 async function prepare(
@@ -90,6 +70,8 @@ async function prepare(
   await migrateLegacy(db, practices, sentences)
   await migrateSentenceStars(db, practices, sentences, stars, reviews)
   await migrateEmbedLines(db, practices, reviews)
+  await migratePracticeKind(db, practices)
+  await migrateQuestionRawsWords(db, practices)
   await Promise.all([
     practices.createIndex({ createdAt: -1 }, { name: "createdAt_desc" }),
     practices.createIndex({ "lines._id": 1 }, { name: "lines_id" }),
@@ -103,6 +85,45 @@ async function prepare(
   } catch {
     // Index may already be gone.
   }
+}
+
+async function migratePracticeKind(db: Db, practices: Collection<PracticeDoc>) {
+  const migrations = db.collection<{ _id: string }>("migrations")
+  if (await migrations.findOne({ _id: PRACTICE_KIND_MIGRATION_ID })) return
+  await practices.updateMany({ kind: { $exists: false } }, { $set: { kind: "deep" } })
+  await migrations.updateOne(
+    { _id: PRACTICE_KIND_MIGRATION_ID },
+    { $set: { at: new Date() } },
+    { upsert: true },
+  )
+}
+
+async function migrateQuestionRawsWords(db: Db, practices: Collection<PracticeDoc>) {
+  const migrations = db.collection<{ _id: string }>("migrations")
+  if (await migrations.findOne({ _id: QUESTION_RAWS_WORDS_MIGRATION_ID })) return
+
+  const legacy = db.collection("practices")
+  for await (const raw of legacy.find({ "questionRaws.word": { $exists: true } })) {
+    if (!isRecord(raw) || !(raw._id instanceof ObjectId) || !Array.isArray(raw.questionRaws)) continue
+    const questionRaws: PracticeQuestionRaw[] = []
+    for (const item of raw.questionRaws) {
+      if (!isRecord(item)) continue
+      if (Array.isArray(item.words) && item.words.every((entry) => typeof entry === "string" && entry.length > 0)) {
+        questionRaws.push({ words: item.words, raw: item.raw })
+        continue
+      }
+      if (typeof item.word === "string" && item.word.trim() !== "") {
+        questionRaws.push({ words: [item.word], raw: item.raw })
+      }
+    }
+    await practices.updateOne({ _id: raw._id }, { $set: { questionRaws } })
+  }
+
+  await migrations.updateOne(
+    { _id: QUESTION_RAWS_WORDS_MIGRATION_ID },
+    { $set: { at: new Date() } },
+    { upsert: true },
+  )
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -190,7 +211,7 @@ async function migrateRounds(db: Db, practices: Collection<PracticeDoc>, sentenc
       })
       lines.push({ _id: item._id, position, sentenceId, award })
     }
-    await upsertPractice(practices, raw._id, { createdAt, cursor, words, lines })
+    await upsertPractice(practices, raw._id, { createdAt, cursor, kind: "deep", words, lines })
   }
 }
 
@@ -221,7 +242,7 @@ async function migrateQuizzes(db: Db, practices: Collection<PracticeDoc>, senten
 
     const createdAt = raw.createdAt instanceof Date ? raw.createdAt : new Date()
     const cursor = typeof raw.cursor === "number" && Number.isInteger(raw.cursor) ? raw.cursor : 0
-    await upsertPractice(practices, raw._id, { createdAt, cursor, words, lines })
+    await upsertPractice(practices, raw._id, { createdAt, cursor, kind: "deep", words, lines })
   }
 }
 
@@ -378,7 +399,13 @@ async function migrateEmbedLines(db: Db, practices: Collection<PracticeDoc>, rev
 async function upsertPractice(
   practices: Collection<PracticeDoc>,
   id: ObjectId,
-  doc: { createdAt: Date; cursor: number; words: PracticeWord[]; lines: PracticeLine[] },
+  doc: {
+    createdAt: Date
+    cursor: number
+    kind: "deep" | "wide"
+    words: PracticeWord[]
+    lines: PracticeLine[]
+  },
 ) {
   try {
     await practices.updateOne({ _id: id }, { $setOnInsert: doc }, { upsert: true })
