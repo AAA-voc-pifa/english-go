@@ -23,10 +23,17 @@ function practiceKind(doc: PracticeDoc): PracticeKind {
   return doc.kind === "wide" ? "wide" : "deep"
 }
 
-async function openPracticeState(): Promise<{ count: number; busyWords: Set<string> }> {
+async function openPracticeState(): Promise<{
+  count: number
+  busyWords: Set<string>
+  /** Oldest unfinished practice first. */
+  openIds: string[]
+}> {
   const { practices, practiceLines } = await collections()
-  const docs = await practices.find({}, { projection: { _id: 1, words: 1 } }).toArray()
-  if (docs.length === 0) return { count: 0, busyWords: new Set() }
+  const docs = await practices
+    .find({}, { projection: { _id: 1, words: 1, createdAt: 1 }, sort: { createdAt: 1, _id: 1 } })
+    .toArray()
+  if (docs.length === 0) return { count: 0, busyWords: new Set(), openIds: [] }
 
   const ids = docs.map((doc) => doc._id)
   const lineDocs = await practiceLines
@@ -44,15 +51,21 @@ async function openPracticeState(): Promise<{ count: number; busyWords: Set<stri
   }
 
   const busyWords = new Set<string>()
-  let count = 0
+  const openIds: string[] = []
   for (const doc of docs) {
-    const stat = byPractice.get(doc._id.toHexString())
+    const id = doc._id.toHexString()
+    const stat = byPractice.get(id)
     if (!stat || stat.total === 0) continue
     if (stat.answered >= stat.total) continue
-    count += 1
+    openIds.push(id)
     for (const word of doc.words) busyWords.add(word.word)
   }
-  return { count, busyWords }
+  return { count: openIds.length, busyWords, openIds }
+}
+
+export async function findOpenPractice(): Promise<string | null> {
+  const open = await openPracticeState()
+  return open.openIds[0] ?? null
 }
 
 export function parseId(id: string, message: string): ObjectId {

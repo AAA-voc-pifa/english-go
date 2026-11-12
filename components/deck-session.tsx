@@ -8,6 +8,7 @@ import { Sentence } from "@/components/sentence"
 import { StatusBlock } from "@/components/status-block"
 import { prefetchLine, setSpeechCacheKey, speechLabel, useLineAudio } from "@/hooks/use-line-audio"
 import { requestJson } from "@/lib/http"
+import { refreshOpenPractice } from "@/lib/practice-job"
 import type { AppSettings, Award, Deck, DeckCard, DeckResponse, SettingsResponse } from "@/lib/types"
 
 function keepCursor(current: Deck | null, next: Deck): Deck {
@@ -119,6 +120,11 @@ export function DeckSession({
   const finished = deck ? isFinished(deck) : false
   const cardId = card?.id
   const nextId = deck && !finished ? (deck.cards[deck.cursor + 1]?.id ?? null) : null
+
+  useEffect(() => {
+    if (kind !== "practice" || !finished) return
+    void refreshOpenPractice()
+  }, [finished, kind])
 
   useEffect(() => {
     if (!settings) return
