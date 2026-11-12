@@ -7,10 +7,12 @@ Personal English practice app (Next.js + MongoDB). Word list lives in external *
 1. **Practice** — header **New** randomly picks a kind, then scores each line 5/10/15 → points go to the **word**:
    - **deep** — 3 weakest free words → `/e2c` ×3 → 9 sentences (3 per word)
    - **wide** — 9 weakest free words → `/e2c-multi` ×3 (3 words each) → 9 sentences (1 per word); falls back to deep if fewer than 9 free words
-2. **Star** — save a practice line as a favourite sentence (points start at 0).
-3. **Review** — up to 9 favourites, one per word → score again → points go to the **sentence**, and `ceil(award*2/3)` to the word.
+2. **Star** — link a practice sentence into `stars` (points start at 0). Sentence text lives in `sentences`.
+3. **Review** — up to 9 favourites, one per word → score again → points go to the **star**, and `ceil(award*2/3)` to the word.
 
-Shared UI: `components/deck-session.tsx`. Domain: `lib/practices.ts`, `lib/reviews.ts`, `lib/sentences.ts`, `lib/voc.ts`.
+Shared UI: `components/deck-session.tsx`. Domain: `lib/practices.ts`, `lib/reviews.ts`, `lib/stars.ts`, `lib/sentence-content.ts`, `lib/voc.ts`.
+
+Data: `sentences` = word/en/zh · `stars` = sentenceId + review points · `practice_lines` / `reviews` reference `sentenceId` only.
 
 ## Intentional (do not “fix”)
 

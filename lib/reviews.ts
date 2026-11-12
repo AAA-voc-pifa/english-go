@@ -1,23 +1,35 @@
 import { ObjectId } from "mongodb"
 import { ApiError } from "@/lib/api-error"
 import { parseId } from "@/lib/practices"
-import { collections, type ReviewDoc, type SentenceDoc } from "@/lib/store"
+import { sentencesByIds } from "@/lib/sentence-content"
+import { collections, type ReviewDoc, type StarDoc } from "@/lib/store"
 import { isAward, type Deck, type ReviewSummary } from "@/lib/types"
 import { increaseWordPoints } from "@/lib/voc"
 
 const REVIEW_SIZE = 9
 
-function toDeck(doc: ReviewDoc, points: Map<string, number>): Deck {
-  const cards = doc.items.map((item) => ({
-    id: item.sentenceId.toHexString(),
-    word: item.word,
-    en: item.en,
-    zh: item.zh,
-    revealed: item.revealed,
-    award: item.award,
-    points: points.get(item.sentenceId.toHexString()) ?? 0,
-    starred: true,
-  }))
+function toDeck(
+  doc: ReviewDoc,
+  content: Map<string, { word: string; en: string; zh: string }>,
+  points: Map<string, number>,
+): Deck {
+  const cards = doc.items.map((item) => {
+    const key = item.sentenceId.toHexString()
+    const sentence = content.get(key)
+    if (!sentence) {
+      throw new ApiError(`Missing sentence ${key} in review`, 500)
+    }
+    return {
+      id: key,
+      word: sentence.word,
+      en: sentence.en,
+      zh: sentence.zh,
+      revealed: item.revealed,
+      award: item.award,
+      points: points.get(key) ?? 0,
+      starred: true,
+    }
+  })
   const last = Math.max(cards.length - 1, 0)
   return {
     id: doc._id.toHexString(),
@@ -33,10 +45,6 @@ function toDeck(doc: ReviewDoc, points: Map<string, number>): Deck {
   }
 }
 
-async function pointsFor(docs: SentenceDoc[]): Promise<Map<string, number>> {
-  return new Map(docs.map((doc) => [doc._id.toHexString(), doc.points]))
-}
-
 async function requireReview(id: string): Promise<ReviewDoc> {
   const { reviews } = await collections()
   const doc = await reviews.findOne({ _id: parseId(id, "Review not found") })
@@ -44,15 +52,15 @@ async function requireReview(id: string): Promise<ReviewDoc> {
   return doc
 }
 
-async function pruneMissingSentences(doc: ReviewDoc): Promise<ReviewDoc> {
+async function pruneUnstarred(doc: ReviewDoc): Promise<ReviewDoc> {
   if (doc.items.length === 0) return doc
-  const { sentences, reviews } = await collections()
+  const { stars, reviews } = await collections()
   const ids = doc.items.map((item) => item.sentenceId)
-  const found = await sentences
-    .find({ _id: { $in: ids } })
-    .project<{ _id: ObjectId }>({ _id: 1 })
+  const found = await stars
+    .find({ sentenceId: { $in: ids } })
+    .project<{ sentenceId: ObjectId }>({ sentenceId: 1 })
     .toArray()
-  const alive = new Set(found.map((entry) => entry._id.toHexString()))
+  const alive = new Set(found.map((entry) => entry.sentenceId.toHexString()))
   if (alive.size === doc.items.length) return doc
 
   const items = doc.items.filter((item) => alive.has(item.sentenceId.toHexString()))
@@ -62,11 +70,22 @@ async function pruneMissingSentences(doc: ReviewDoc): Promise<ReviewDoc> {
 }
 
 async function readDeck(doc: ReviewDoc): Promise<Deck> {
-  const pruned = await pruneMissingSentences(doc)
-  const { sentences } = await collections()
+  const pruned = await pruneUnstarred(doc)
   const ids = pruned.items.map((item) => item.sentenceId)
-  const docs = ids.length === 0 ? [] : await sentences.find({ _id: { $in: ids } }).toArray()
-  return toDeck(pruned, await pointsFor(docs))
+  const [sentenceMap, starDocs] = await Promise.all([
+    sentencesByIds(ids),
+    ids.length === 0
+      ? Promise.resolve([] as StarDoc[])
+      : collections().then(({ stars }) => stars.find({ sentenceId: { $in: ids } }).toArray()),
+  ])
+  const content = new Map(
+    [...sentenceMap.entries()].map(([key, sentence]) => [
+      key,
+      { word: sentence.word, en: sentence.en, zh: sentence.zh },
+    ]),
+  )
+  const points = new Map(starDocs.map((star) => [star.sentenceId.toHexString(), star.points]))
+  return toDeck(pruned, content, points)
 }
 
 function isOpenReview(doc: ReviewDoc): boolean {
@@ -77,7 +96,7 @@ async function findOpenReview(): Promise<ReviewDoc | null> {
   const { reviews } = await collections()
   const docs = await reviews.find({}, { sort: { createdAt: -1 } }).toArray()
   for (const doc of docs) {
-    const pruned = await pruneMissingSentences(doc)
+    const pruned = await pruneUnstarred(doc)
     if (isOpenReview(pruned)) return pruned
   }
   return null
@@ -87,14 +106,17 @@ export async function createReview(): Promise<Deck> {
   const open = await findOpenReview()
   if (open) return readDeck(open)
 
-  const { sentences, reviews } = await collections()
-  const candidates = await sentences.find({}, { sort: { points: 1, createdAt: 1 } }).toArray()
-  const picked: SentenceDoc[] = []
+  const { stars, reviews } = await collections()
+  const candidates = await stars.find({}, { sort: { points: 1, createdAt: 1 } }).toArray()
+  const sentenceMap = await sentencesByIds(candidates.map((star) => star.sentenceId))
+  const picked: StarDoc[] = []
   const seenWords = new Set<string>()
-  for (const sentence of candidates) {
+  for (const star of candidates) {
+    const sentence = sentenceMap.get(star.sentenceId.toHexString())
+    if (!sentence) continue
     if (seenWords.has(sentence.word)) continue
     seenWords.add(sentence.word)
-    picked.push(sentence)
+    picked.push(star)
     if (picked.length >= REVIEW_SIZE) break
   }
   if (picked.length === 0) throw new ApiError("No starred sentences yet", 409)
@@ -103,23 +125,20 @@ export async function createReview(): Promise<Deck> {
     _id: new ObjectId(),
     createdAt: new Date(),
     cursor: 0,
-    items: picked.map((sentence) => ({
-      sentenceId: sentence._id,
-      word: sentence.word,
-      en: sentence.en,
-      zh: sentence.zh,
+    items: picked.map((star) => ({
+      sentenceId: star.sentenceId,
       revealed: false,
       award: null,
     })),
   }
   await reviews.insertOne(doc)
-  return toDeck(doc, await pointsFor(picked))
+  return readDeck(doc)
 }
 
 export async function listReviews(limit = 20): Promise<ReviewSummary[]> {
   const { reviews } = await collections()
   const docs = await reviews.find({}, { sort: { createdAt: -1 }, limit }).toArray()
-  const pruned = await Promise.all(docs.map(pruneMissingSentences))
+  const pruned = await Promise.all(docs.map(pruneUnstarred))
   return pruned.map((doc) => ({
     id: doc._id.toHexString(),
     createdAt: doc.createdAt.toISOString(),
@@ -166,14 +185,17 @@ export async function awardReviewCard(id: string, sentenceId: string, award: num
   if (!item) throw new ApiError("Sentence not found", 404)
   if (item.award !== null) throw new ApiError("Already scored", 409)
 
-  const { reviews, sentences } = await collections()
-  const sentence = await sentences.findOne({ _id: objectId })
-  if (!sentence) throw new ApiError("Sentence not found", 404)
+  const { reviews, stars, sentences } = await collections()
+  const [star, sentence] = await Promise.all([
+    stars.findOne({ sentenceId: objectId }),
+    sentences.findOne({ _id: objectId }),
+  ])
+  if (!star || !sentence) throw new ApiError("Sentence not found", 404)
 
   const wordDelta = wordPointsFromSentenceAward(award)
   await increaseWordPoints(sentence.word, wordDelta)
   try {
-    await sentences.updateOne({ _id: sentence._id }, { $inc: { points: award } })
+    await stars.updateOne({ _id: star._id }, { $inc: { points: award } })
   } catch (error) {
     await increaseWordPoints(sentence.word, -wordDelta).catch(() => undefined)
     throw error
@@ -186,7 +208,7 @@ export async function awardReviewCard(id: string, sentenceId: string, award: num
   )
   if (updated.matchedCount !== 1) {
     await Promise.all([
-      sentences.updateOne({ _id: sentence._id }, { $inc: { points: -award } }).catch(() => undefined),
+      stars.updateOne({ _id: star._id }, { $inc: { points: -award } }).catch(() => undefined),
       increaseWordPoints(sentence.word, -wordDelta).catch(() => undefined),
     ])
     throw new ApiError("Already scored", 409)

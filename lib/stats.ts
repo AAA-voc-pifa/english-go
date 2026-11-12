@@ -45,7 +45,7 @@ function sentenceBuckets(points: number[]): Array<{ label: string; count: number
 }
 
 export async function getStats(): Promise<StatsSnapshot> {
-  const [{ practices, practiceLines, sentences, reviews }, words] = await Promise.all([
+  const [{ practices, practiceLines, stars, reviews }, words] = await Promise.all([
     collections(),
     listAllWords(),
   ])
@@ -59,7 +59,7 @@ export async function getStats(): Promise<StatsSnapshot> {
   const [practiceDocs, lineDocs, favourites, reviewDocs] = await Promise.all([
     practices.find({}, { projection: { _id: 1 } }).toArray(),
     practiceLines.find({}, { projection: { practiceId: 1, award: 1 } }).toArray(),
-    sentences.find({}, { projection: { points: 1 } }).toArray(),
+    stars.find({}, { projection: { points: 1 } }).toArray(),
     reviews.find({}, { projection: { items: 1 } }).toArray(),
   ])
 

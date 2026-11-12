@@ -1,7 +1,8 @@
 import { ObjectId } from "mongodb"
 import { ApiError } from "@/lib/api-error"
 import { generateMultiTranslations, generateTranslations } from "@/lib/question-api"
-import { collections, type PracticeDoc, type PracticeLineDoc } from "@/lib/store"
+import { ensureSentence, sentencesByIds } from "@/lib/sentence-content"
+import { collections, type PracticeDoc, type PracticeLineDoc, type SentenceDoc } from "@/lib/store"
 import {
   isAward,
   type Award,
@@ -60,6 +61,7 @@ async function openPracticeState(): Promise<{
     openIds.push(id)
     for (const word of doc.words) busyWords.add(word.word)
   }
+
   return { count: openIds.length, busyWords, openIds }
 }
 
@@ -95,29 +97,40 @@ async function linesFor(practiceId: ObjectId): Promise<PracticeLineDoc[]> {
   return practiceLines.find({ practiceId }, { sort: { position: 1 } }).toArray()
 }
 
-async function starredEnglish(lines: PracticeLineDoc[]): Promise<Set<string>> {
-  const { sentences } = await collections()
-  if (lines.length === 0) return new Set()
-  const docs = await sentences
-    .find({ en: { $in: lines.map((line) => line.en) } })
-    .project<{ en: string }>({ en: 1 })
+async function starredSentenceIds(sentenceIds: ObjectId[]): Promise<Set<string>> {
+  if (sentenceIds.length === 0) return new Set()
+  const { stars } = await collections()
+  const docs = await stars
+    .find({ sentenceId: { $in: sentenceIds } })
+    .project<{ sentenceId: ObjectId }>({ sentenceId: 1 })
     .toArray()
-  return new Set(docs.map((doc) => doc.en))
+  return new Set(docs.map((doc) => doc.sentenceId.toHexString()))
 }
 
-function toDeck(doc: PracticeDoc, lineDocs: PracticeLineDoc[], starred: Set<string>): Deck {
+function toDeck(
+  doc: PracticeDoc,
+  lineDocs: PracticeLineDoc[],
+  sentenceMap: Map<string, SentenceDoc>,
+  starred: Set<string>,
+): Deck {
   const ordered = lineDocs.slice().sort((left, right) => left.position - right.position)
   const points = new Map(doc.words.map((word) => [word.word, word.points]))
-  const cards: DeckCard[] = ordered.map((line) => ({
-    id: line._id.toHexString(),
-    word: line.word,
-    en: line.en,
-    zh: line.zh,
-    revealed: line.revealed,
-    award: line.award,
-    points: points.get(line.word) ?? 0,
-    starred: starred.has(line.en),
-  }))
+  const cards: DeckCard[] = ordered.map((line) => {
+    const sentence = sentenceMap.get(line.sentenceId.toHexString())
+    if (!sentence) {
+      throw new ApiError(`Missing sentence for practice line ${line._id.toHexString()}`, 500)
+    }
+    return {
+      id: line._id.toHexString(),
+      word: sentence.word,
+      en: sentence.en,
+      zh: sentence.zh,
+      revealed: line.revealed,
+      award: line.award,
+      points: points.get(sentence.word) ?? 0,
+      starred: starred.has(line.sentenceId.toHexString()),
+    }
+  })
   const groups: DeckGroup[] = doc.words.map((word) => ({
     key: word.word,
     label: word.word,
@@ -137,11 +150,11 @@ function toDeck(doc: PracticeDoc, lineDocs: PracticeLineDoc[], starred: Set<stri
 
 async function readDeck(doc: PracticeDoc): Promise<Deck> {
   const lines = await linesFor(doc._id)
-  return toDeck(doc, lines, await starredEnglish(lines))
+  const sentenceMap = await sentencesByIds(lines.map((line) => line.sentenceId))
+  return toDeck(doc, lines, sentenceMap, await starredSentenceIds(lines.map((line) => line.sentenceId)))
 }
 
 async function pickWords(count: number, busyWords: Set<string>): Promise<VocWord[]> {
-  // points=0: read-only pick of lowest words; exclude open-practice words.
   const lowest = await listLowest(count, 0, busyWords)
   if (lowest.length === 0) {
     if (busyWords.size > 0) throw new ApiError("Every word is already in an open practice", 409)
@@ -153,9 +166,31 @@ async function pickWords(count: number, busyWords: Set<string>): Promise<VocWord
   return lowest
 }
 
+async function buildLineDocs(
+  practiceId: ObjectId,
+  questions: Array<{ word: string; en: string; zh: string }>,
+): Promise<{ lineDocs: PracticeLineDoc[]; sentenceMap: Map<string, SentenceDoc> }> {
+  const sentenceMap = new Map<string, SentenceDoc>()
+  const lineDocs: PracticeLineDoc[] = []
+  for (const [position, question] of questions.entries()) {
+    const sentence = await ensureSentence(question)
+    sentenceMap.set(sentence._id.toHexString(), sentence)
+    lineDocs.push({
+      _id: new ObjectId(),
+      practiceId,
+      position,
+      sentenceId: sentence._id,
+      revealed: false,
+      award: null,
+    })
+  }
+  return { lineDocs, sentenceMap }
+}
+
 async function persistPractice(
   practiceDoc: PracticeDoc,
   lineDocs: PracticeLineDoc[],
+  sentenceMap: Map<string, SentenceDoc>,
 ): Promise<Deck> {
   const { practices, practiceLines } = await collections()
   await practices.insertOne(practiceDoc)
@@ -168,7 +203,7 @@ async function persistPractice(
     ])
     throw error
   }
-  return toDeck(practiceDoc, lineDocs, new Set())
+  return toDeck(practiceDoc, lineDocs, sentenceMap, new Set())
 }
 
 async function createDeepPractice(busyWords: Set<string>): Promise<Deck> {
@@ -193,7 +228,7 @@ async function createDeepPractice(busyWords: Set<string>): Promise<Deck> {
       raw: generated.raw,
     })),
   }
-  const lineDocs: PracticeLineDoc[] = shuffle(
+  const questions = shuffle(
     groups.flatMap(({ word, generated }) =>
       generated.questions.map((question) => ({
         word: word.word,
@@ -201,18 +236,9 @@ async function createDeepPractice(busyWords: Set<string>): Promise<Deck> {
         zh: question.zh,
       })),
     ),
-  ).map((question, position) => ({
-    _id: new ObjectId(),
-    practiceId,
-    position,
-    word: question.word,
-    en: question.en,
-    zh: question.zh,
-    revealed: false,
-    award: null,
-  }))
-
-  return persistPractice(practiceDoc, lineDocs)
+  )
+  const { lineDocs, sentenceMap } = await buildLineDocs(practiceId, questions)
+  return persistPractice(practiceDoc, lineDocs, sentenceMap)
 }
 
 async function createWidePractice(busyWords: Set<string>): Promise<Deck> {
@@ -242,26 +268,15 @@ async function createWidePractice(busyWords: Set<string>): Promise<Deck> {
       raw: generated.raw,
     })),
   }
-  const lineDocs: PracticeLineDoc[] = generatedBatches
-    .flatMap(({ generated }) =>
-      generated.questions.map((question) => ({
-        word: question.word,
-        en: question.en,
-        zh: question.zh,
-      })),
-    )
-    .map((question, position) => ({
-      _id: new ObjectId(),
-      practiceId,
-      position,
+  const questions = generatedBatches.flatMap(({ generated }) =>
+    generated.questions.map((question) => ({
       word: question.word,
       en: question.en,
       zh: question.zh,
-      revealed: false,
-      award: null,
-    }))
-
-  return persistPractice(practiceDoc, lineDocs)
+    })),
+  )
+  const { lineDocs, sentenceMap } = await buildLineDocs(practiceId, questions)
+  return persistPractice(practiceDoc, lineDocs, sentenceMap)
 }
 
 export async function createPractice(): Promise<Deck> {
@@ -351,10 +366,13 @@ export async function getPractice(id: string): Promise<Deck> {
 export async function cardSentence(id: string): Promise<string> {
   const { practiceLines, sentences } = await collections()
   const objectId = parseId(id, "That sentence isn't here")
-  const line = await practiceLines.findOne({ _id: objectId }, { projection: { en: 1 } })
-  if (line && typeof line.en === "string" && line.en) return line.en
+  const line = await practiceLines.findOne({ _id: objectId }, { projection: { sentenceId: 1 } })
+  if (line) {
+    const sentence = await sentences.findOne({ _id: line.sentenceId }, { projection: { en: 1 } })
+    if (sentence?.en) return sentence.en
+  }
   const sentence = await sentences.findOne({ _id: objectId }, { projection: { en: 1 } })
-  if (sentence && typeof sentence.en === "string" && sentence.en) return sentence.en
+  if (sentence?.en) return sentence.en
   throw new ApiError("That sentence isn't here", 404)
 }
 
@@ -389,21 +407,25 @@ export async function awardPracticeLine(id: string, lineId: string, award: numbe
   if (!line) throw new ApiError("Sentence not found", 404)
   if (line.award !== null) throw new ApiError("Already scored", 409)
 
-  const nextPoints = await increaseWordPoints(line.word, award)
+  const sentenceMap = await sentencesByIds([line.sentenceId])
+  const sentence = sentenceMap.get(line.sentenceId.toHexString())
+  if (!sentence) throw new ApiError("Sentence not found", 404)
+
+  const nextPoints = await increaseWordPoints(sentence.word, award)
   const updated = await practiceLines.updateOne({ _id: line._id, award: null }, { $set: { award } })
   if (updated.matchedCount !== 1) {
-    await increaseWordPoints(line.word, -award).catch(() => undefined)
+    await increaseWordPoints(sentence.word, -award).catch(() => undefined)
     throw new ApiError("Already scored", 409)
   }
 
   try {
     await practices.updateOne(
-      { _id: doc._id, "words.word": line.word },
+      { _id: doc._id, "words.word": sentence.word },
       { $set: { "words.$.points": nextPoints } },
     )
   } catch (error) {
     await practiceLines.updateOne({ _id: line._id }, { $set: { award: null } }).catch(() => undefined)
-    await increaseWordPoints(line.word, -award).catch(() => undefined)
+    await increaseWordPoints(sentence.word, -award).catch(() => undefined)
     throw error
   }
 

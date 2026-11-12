@@ -1,6 +1,6 @@
 import { route } from "@/lib/api-error"
 import { requirePassword } from "@/lib/auth"
-import { deleteSentence } from "@/lib/sentences"
+import { deleteStar as deleteSentence } from "@/lib/stars"
 
 type Context = { params: Promise<{ id: string }> }
 
