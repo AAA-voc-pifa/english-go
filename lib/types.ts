@@ -76,7 +76,7 @@ export type AppSettings = {
 }
 
 export type DeckResponse = { deck: Deck }
-export type OpenPracticeResponse = { openId: string | null }
+export type OpenPracticeResponse = { openIds: string[] }
 export type PracticeListResponse = { practices: PracticeSummary[]; nextCursor: string | null }
 export type SentenceListResponse = { sentences: StarredSentence[]; nextCursor: string | null }
 export type ReviewListResponse = { reviews: ReviewSummary[] }

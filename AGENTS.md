@@ -15,7 +15,7 @@ Shared UI: `components/deck-session.tsx`. Domain: `lib/practices.ts`, `lib/revie
 ## Intentional (do not “fix”)
 
 - Up to **2 open practices** (`count > 1` with `MAX_OPEN_PRACTICES = 1`): do one while the next LLM generation runs.
-- Header **New** becomes **Continue** when any practice is unfinished and opens the oldest open one; otherwise it starts a new practice.
+- Header button: on `/practice/[id]`, stay **New** so you can prefetch the next round (disabled if another open practice already exists); elsewhere, **Continue** when any practice is unfinished (opens the oldest), otherwise **New**.
 - Home with favourites shows only the weakest starred sentence — no Start/Continue there; use header **New** / Practices / Favourites.
 - Practices list = practices only. Resume reviews from Favourites (**Continue**).
 - Result / Later need no extra CTAs; header nav is enough.

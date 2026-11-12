@@ -11,10 +11,15 @@ type PracticeJob =
 
 const idle: PracticeJob = { status: "idle" }
 let job: PracticeJob = idle
-let openId: string | null = null
+let openIds: string[] = []
 const listeners = new Set<() => void>()
 const openListeners = new Set<() => void>()
 let openRefresh: Promise<void> | null = null
+
+function sameIds(left: string[], right: string[]) {
+  if (left.length !== right.length) return false
+  return left.every((id, index) => id === right[index])
+}
 
 function emit() {
   for (const listener of listeners) listener()
@@ -46,19 +51,24 @@ export function subscribeOpenPractice(listener: () => void) {
   }
 }
 
+export function readOpenPracticeIds() {
+  return openIds
+}
+
+/** Oldest unfinished practice, if any. */
 export function readOpenPracticeId() {
-  return openId
+  return openIds[0] ?? null
 }
 
 export function refreshOpenPractice() {
   openRefresh ??= requestJson<OpenPracticeResponse>("/api/practices?open=1")
     .then((data) => {
-      if (openId === data.openId) return
-      openId = data.openId
+      if (sameIds(openIds, data.openIds)) return
+      openIds = data.openIds
       emitOpen()
     })
     .catch(() => {
-      // Keep the last known open id; the next refresh can recover.
+      // Keep the last known open ids; the next refresh can recover.
     })
     .finally(() => {
       openRefresh = null
@@ -73,9 +83,12 @@ export function startPractice() {
   void requestJson<DeckResponse>("/api/practices", { method: "POST" })
     .then((data) => {
       job = { status: "ready", id: data.deck.id }
-      openId = data.deck.id
+      if (!openIds.includes(data.deck.id)) {
+        openIds = [...openIds, data.deck.id]
+        emitOpen()
+      }
       emit()
-      emitOpen()
+      void refreshOpenPractice()
     })
     .catch((caught: unknown) => {
       job = {

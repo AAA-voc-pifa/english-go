@@ -63,9 +63,8 @@ async function openPracticeState(): Promise<{
   return { count: openIds.length, busyWords, openIds }
 }
 
-export async function findOpenPractice(): Promise<string | null> {
-  const open = await openPracticeState()
-  return open.openIds[0] ?? null
+export async function listOpenPracticeIds(): Promise<string[]> {
+  return (await openPracticeState()).openIds
 }
 
 export function parseId(id: string, message: string): ObjectId {

@@ -7,12 +7,18 @@ import { KeyButton } from "@/components/key-button"
 import {
   idlePracticeJob,
   readOpenPracticeId,
+  readOpenPracticeIds,
   readPracticeJob,
   refreshOpenPractice,
   startPractice,
   subscribeOpenPractice,
   subscribePracticeJob,
 } from "@/lib/practice-job"
+
+function practiceIdFromPath(pathname: string): string | null {
+  const match = /^\/practice\/([^/]+)/.exec(pathname)
+  return match?.[1] ?? null
+}
 
 export function NewRoundButton({
   label,
@@ -28,9 +34,13 @@ export function NewRoundButton({
   const router = useRouter()
   const pathname = usePathname()
   const job = useSyncExternalStore(subscribePracticeJob, readPracticeJob, idlePracticeJob)
-  const openId = useSyncExternalStore(subscribeOpenPractice, readOpenPracticeId, () => null)
+  const openIds = useSyncExternalStore(subscribeOpenPractice, readOpenPracticeIds, () => [])
   const held = job.status === "pending" || job.status === "ready"
-  const resume = Boolean(openId) && !held
+  const currentPracticeId = practiceIdFromPath(pathname)
+  const onPracticePage = currentPracticeId !== null
+  const otherOpen = onPracticePage && openIds.some((id) => id !== currentPracticeId)
+  const resume = !onPracticePage && openIds.length > 0 && !held
+  const blocked = held || otherOpen
 
   useEffect(() => {
     void refreshOpenPractice()
@@ -49,8 +59,12 @@ export function NewRoundButton({
   }, [])
 
   function onClick() {
-    if (held) return
-    if (openId) {
+    if (blocked) return
+    if (onPracticePage) {
+      startPractice()
+      return
+    }
+    if (openIds.length > 0) {
       void refreshOpenPractice().then(() => {
         const id = readOpenPracticeId()
         if (id) router.push(`/practice/${id}`)
@@ -68,7 +82,7 @@ export function NewRoundButton({
     <KeyButton
       shortcut={shortcut}
       onClick={onClick}
-      disabled={held}
+      disabled={blocked}
       tone={tone}
       className={compact ? "h-10 w-10 px-0 sm:w-auto sm:px-3" : undefined}
     >
