@@ -7,6 +7,7 @@ import {
   idlePracticeJob,
   readOpenPracticeId,
   readPracticeJob,
+  readSuppressReadyDialog,
   startPractice,
   subscribeOpenPractice,
   subscribePracticeJob,
@@ -15,8 +16,10 @@ import {
 export function PracticeReadyDialog() {
   const job = useSyncExternalStore(subscribePracticeJob, readPracticeJob, idlePracticeJob)
   const openId = useSyncExternalStore(subscribeOpenPractice, readOpenPracticeId, () => null)
+  const suppressReady = useSyncExternalStore(subscribePracticeJob, readSuppressReadyDialog, () => false)
   const router = useRouter()
-  const open = job.status === "ready" || job.status === "error"
+  const open =
+    (job.status === "ready" && !suppressReady) || job.status === "error"
 
   useEffect(() => {
     if (!open) return

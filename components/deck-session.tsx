@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState } from "react"
 import { DeckRail } from "@/components/deck-rail"
 import { PracticeDock } from "@/components/practice-dock"
+import { PracticeNextDialog } from "@/components/practice-next-dialog"
 import { ResultSheet } from "@/components/result-sheet"
 import { Sentence } from "@/components/sentence"
 import { StatusBlock } from "@/components/status-block"
 import { prefetchLine, setSpeechCacheKey, speechLabel, useLineAudio } from "@/hooks/use-line-audio"
 import { requestJson } from "@/lib/http"
-import { refreshOpenPractice } from "@/lib/practice-job"
+import { refreshOpenPractice, setSuppressReadyDialog } from "@/lib/practice-job"
 import type { AppSettings, Award, Deck, DeckCard, DeckResponse, SettingsResponse } from "@/lib/types"
 
 function takeScores(current: Deck, incoming: Deck): Deck {
@@ -53,17 +54,23 @@ export function DeckSession({
   const [loading, setLoading] = useState(true)
   const [starPending, setStarPending] = useState(false)
   const [notice, setNotice] = useState<{ id: number; message: string } | null>(null)
+  /** After finishing a practice in this visit: ask next step before the result sheet. */
+  const [askNext, setAskNext] = useState(false)
   const savedCursor = useRef<number | null>(null)
   const scoring = useRef(new Set<string>())
+  const loadedFinished = useRef(false)
   const { target, phase, error: soundError, play, stop, dismissError } = useLineAudio()
 
   useEffect(() => {
     let cancelled = false
+    loadedFinished.current = false
+    setAskNext(false)
     const deckPromise = requestJson<DeckResponse>(endpoint(kind, id))
     const settingsPromise = requestJson<SettingsResponse>("/api/settings").catch(() => null)
     Promise.all([deckPromise, settingsPromise])
       .then(([deckData, settingsData]) => {
         if (cancelled) return
+        loadedFinished.current = isFinished(deckData.deck)
         setDeck(deckData.deck)
         setSettings(settingsData?.settings ?? null)
       })
@@ -75,6 +82,7 @@ export function DeckSession({
       })
     return () => {
       cancelled = true
+      setSuppressReadyDialog(false)
     }
   }, [id, kind])
 
@@ -100,8 +108,15 @@ export function DeckSession({
   const nextId = deck && !finished ? (deck.cards[deck.cursor + 1]?.id ?? null) : null
 
   useEffect(() => {
-    if (kind !== "practice" || !finished) return
+    if (kind !== "practice" || !finished) {
+      setSuppressReadyDialog(false)
+      return
+    }
     void refreshOpenPractice()
+    if (!loadedFinished.current) {
+      setAskNext(true)
+      setSuppressReadyDialog(true)
+    }
   }, [finished, kind])
 
   useEffect(() => {
@@ -227,6 +242,25 @@ export function DeckSession({
   if (loading) return <StatusBlock>Loading…</StatusBlock>
   if (loadError || !deck || !card) {
     return <StatusBlock tone="hot">{loadError ?? "This session is empty"}</StatusBlock>
+  }
+
+  if (finished && kind === "practice" && askNext) {
+    return (
+      <>
+        <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-3 px-5 py-8">
+          <p className="font-mono text-[11px] tracking-[0.18em] text-good uppercase">Done</p>
+          <h1 className="text-3xl tracking-tight">Practice finished</h1>
+        </main>
+        <PracticeNextDialog
+          practiceId={deck.id}
+          onRest={() => {
+            setAskNext(false)
+            setSuppressReadyDialog(false)
+          }}
+        />
+        {notice ? <ScoreNotice message={notice.message} /> : null}
+      </>
+    )
   }
 
   if (finished) {

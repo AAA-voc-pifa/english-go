@@ -12,6 +12,8 @@ type PracticeJob =
 const idle: PracticeJob = { status: "idle" }
 let job: PracticeJob = idle
 let openIds: string[] = []
+/** Hide the global "ready" dialog while the post-practice next-step prompt is up. */
+let suppressReadyDialog = false
 const listeners = new Set<() => void>()
 const openListeners = new Set<() => void>()
 let openRefresh: Promise<void> | null = null
@@ -105,4 +107,14 @@ export function dismissPracticeJob() {
   job = idle
   emit()
   void refreshOpenPractice()
+}
+
+export function setSuppressReadyDialog(next: boolean) {
+  if (suppressReadyDialog === next) return
+  suppressReadyDialog = next
+  emit()
+}
+
+export function readSuppressReadyDialog() {
+  return suppressReadyDialog
 }

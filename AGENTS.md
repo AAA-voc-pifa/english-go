@@ -4,36 +4,24 @@ Personal English practice app (Next.js + MongoDB). Word list lives in external *
 
 ## Development stance
 
-This project stays in **active development** (solo / personal). Prefer **logically elegant** models and code over production-hardening defaults:
+Active solo development. Prefer **logically elegant** models and code over production-hardening defaults:
 
-- Do not refuse clean refactors because a migration might lose data or be hard to roll back.
-- Breaking schema changes and one-shot migrations are fine; restore from scratch or re-practice if needed.
-- Choose the clearer domain shape even when a “safer / more practical” shortcut would work.
-- Still fix real bugs and keep behaviour coherent — elegance is not an excuse for broken logic.
+- Clean refactors and breaking schema/migrations are fine; restore from scratch or re-practice if needed.
+- Choose the clearer domain shape even when a safer shortcut would work.
+- Still fix real bugs — elegance is not an excuse for broken logic.
 
-## Loop
+## Domain
 
-1. **Practice** — header **New** randomly picks a kind, then scores each line 5/10/15 → points go to the **word**:
-   - **deep** — 3 weakest free words → `/e2c` ×3 → 9 sentences (3 per word)
-   - **wide** — 9 weakest free words → `/e2c-multi` ×3 (3 words each) → 9 sentences (1 per word); falls back to deep if fewer than 9 free words
-2. **Star** — link a practice sentence into `stars` (points start at 0). Sentence text lives in `sentences`.
-3. **Review** — up to 9 favourites, one per word → score again → points go to the **star**, and `ceil(award*2/3)` to the word.
+- **Practice** — score lines 5/10/15 → points go to the **word** (my-voc). Kinds: **deep** (fewer words, more sentences each) and **wide** (more words, one sentence each).
+- **Star** — favourite a practice sentence (`stars` → `sentences`); review points start at 0.
+- **Review** — re-score favourites → points go to the **star**, and `ceil(award*2/3)` to the word.
 
-Shared UI: `components/deck-session.tsx`. Domain: `lib/practices.ts`, `lib/reviews.ts`, `lib/stars.ts`, `lib/sentence-content.ts`, `lib/voc.ts`.
+Data: `sentences` = word/en/zh · `stars` = sentenceId + points · `practices` / `reviews` reference `sentenceId` only.
 
-Data: `sentences` = word/en/zh · `stars` = sentenceId + review points · `practices.lines` / `reviews.items` reference `sentenceId` only (no `revealed`).
+## Intentional
 
-## Intentional (do not “fix”)
-
-- Up to **2 open practices** (`count > 1` with `MAX_OPEN_PRACTICES = 1`): do one while the next LLM generation runs.
-- Header button: on `/practice/[id]`, stay **New** so you can prefetch the next round (disabled if another open practice already exists); elsewhere, **Continue** when any practice is unfinished (opens the oldest), otherwise **New**.
-- Home with favourites shows only the weakest starred sentence — no Start/Continue there; use header **New** / Practices / Favourites.
-- Practices list = practices only. Resume reviews from Favourites (**Continue**).
-- Result / Later need no extra CTAs; header nav is enough.
-
-## Surfaces
-
-`/` home · `/practice/[id]` · `/review/[id]` · `/practices` · `/sentences` · `/stats` · `/settings` · `/history` → `/practices`
+- Allow one extra open practice so the next round can generate while you finish the current one.
+- Do not “fix” UX just because it differs from a typical CRUD app — read the code for current flows.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
