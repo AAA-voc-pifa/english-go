@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useSyncExternalStore } from "react"
-import { useRouter } from "next/navigation"
 import {
   dismissPracticeJob,
   idlePracticeJob,
@@ -48,11 +47,13 @@ function DialogButton({
 export function PracticeNextDialog({
   practiceId,
   onRest,
+  onStartNext,
 }: {
   practiceId: string
   onRest: () => void
+  /** Close this dialog first, then navigate — keeps global shortcuts alive on the next page. */
+  onStartNext: (nextId: string) => void
 }) {
-  const router = useRouter()
   const job = useSyncExternalStore(subscribePracticeJob, readPracticeJob, idlePracticeJob)
   const openIds = useSyncExternalStore(subscribeOpenPractice, readOpenPracticeIds, () => [])
 
@@ -60,6 +61,18 @@ export function PracticeNextDialog({
     openIds.find((id) => id !== practiceId) ?? (job.status === "ready" ? job.id : null)
   const canStartNext = nextId !== null && nextId !== practiceId
   const canGenerate = !canStartNext && job.status !== "pending" && job.status !== "ready"
+
+  function startNext() {
+    if (!canStartNext || !nextId) return
+    dismissPracticeJob()
+    onStartNext(nextId)
+  }
+
+  function generate() {
+    if (!canGenerate) return
+    startPractice()
+    onRest()
+  }
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -70,10 +83,8 @@ export function PracticeNextDialog({
         event.preventDefault()
         if (canStartNext && nextId) {
           dismissPracticeJob()
-          router.push(`/practice/${nextId}`)
-          return
-        }
-        if (canGenerate) {
+          onStartNext(nextId)
+        } else if (canGenerate) {
           startPractice()
           onRest()
         }
@@ -86,7 +97,7 @@ export function PracticeNextDialog({
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [canGenerate, canStartNext, nextId, onRest, router])
+  }, [canGenerate, canStartNext, nextId, onRest, onStartNext])
 
   return (
     <div className="fixed inset-0 z-30 flex items-center justify-center bg-bg/80 px-5">
@@ -102,28 +113,12 @@ export function PracticeNextDialog({
         <p className="text-muted">This practice is done.</p>
         <div className="flex flex-wrap gap-2">
           {canStartNext && nextId ? (
-            <DialogButton
-              shortcut="n"
-              tone="lime"
-              autoFocus
-              onClick={() => {
-                dismissPracticeJob()
-                router.push(`/practice/${nextId}`)
-              }}
-            >
+            <DialogButton shortcut="n" tone="lime" autoFocus onClick={startNext}>
               Start next
             </DialogButton>
           ) : null}
           {canGenerate ? (
-            <DialogButton
-              shortcut="n"
-              tone="lime"
-              autoFocus
-              onClick={() => {
-                startPractice()
-                onRest()
-              }}
-            >
+            <DialogButton shortcut="n" tone="lime" autoFocus onClick={generate}>
               New practice
             </DialogButton>
           ) : null}

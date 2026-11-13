@@ -13,6 +13,23 @@ function isTyping(target: EventTarget | null): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT"
 }
 
+function isVisible(el: Element): boolean {
+  if (!(el instanceof HTMLElement)) return false
+  if (typeof el.checkVisibility === "function") {
+    return el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+  }
+  return el.getClientRects().length > 0
+}
+
+/** Password lock or a visible modal dialog — ignore stale/hidden role=dialog nodes. */
+function shortcutsBlocked(): boolean {
+  if (document.querySelector("[data-password-lock]")) return true
+  for (const el of document.querySelectorAll("[role='dialog']")) {
+    if (isVisible(el)) return true
+  }
+  return false
+}
+
 export function ShortcutProvider({ children }: { children: React.ReactNode }) {
   const handlers = useRef(new Map<string, Handler>())
 
@@ -20,7 +37,7 @@ export function ShortcutProvider({ children }: { children: React.ReactNode }) {
     function onKeyDown(event: KeyboardEvent) {
       if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return
       if (event.repeat || event.isComposing || event.key === "Process") return
-      if (document.querySelector("[data-password-lock], [role='dialog']")) return
+      if (shortcutsBlocked()) return
       if (isTyping(event.target)) return
       if (event.key.length !== 1) return
       const handler = handlers.current.get(event.key.toLowerCase())

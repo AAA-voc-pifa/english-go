@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 import { DeckRail } from "@/components/deck-rail"
 import { PracticeDock } from "@/components/practice-dock"
 import { PracticeNextDialog } from "@/components/practice-next-dialog"
@@ -47,6 +48,7 @@ export function DeckSession({
   id: string
   kind: "practice" | "review"
 }) {
+  const router = useRouter()
   const [deck, setDeck] = useState<Deck | null>(null)
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -56,6 +58,7 @@ export function DeckSession({
   const [notice, setNotice] = useState<{ id: number; message: string } | null>(null)
   /** After finishing a practice in this visit: ask next step before the result sheet. */
   const [askNext, setAskNext] = useState(false)
+  const [leaving, setLeaving] = useState(false)
   const savedCursor = useRef<number | null>(null)
   const scoring = useRef(new Set<string>())
   const loadedFinished = useRef(false)
@@ -65,6 +68,7 @@ export function DeckSession({
     let cancelled = false
     loadedFinished.current = false
     setAskNext(false)
+    setLeaving(false)
     const deckPromise = requestJson<DeckResponse>(endpoint(kind, id))
     const settingsPromise = requestJson<SettingsResponse>("/api/settings").catch(() => null)
     Promise.all([deckPromise, settingsPromise])
@@ -239,7 +243,7 @@ export function DeckSession({
     }
   }
 
-  if (loading) return <StatusBlock>Loading…</StatusBlock>
+  if (loading || leaving) return <StatusBlock>Loading…</StatusBlock>
   if (loadError || !deck || !card) {
     return <StatusBlock tone="hot">{loadError ?? "This session is empty"}</StatusBlock>
   }
@@ -256,6 +260,13 @@ export function DeckSession({
           onRest={() => {
             setAskNext(false)
             setSuppressReadyDialog(false)
+          }}
+          onStartNext={(nextPracticeId) => {
+            // Unmount dialog before route change so global shortcuts are not blocked by role=dialog.
+            setLeaving(true)
+            setAskNext(false)
+            setSuppressReadyDialog(false)
+            router.push(`/practice/${nextPracticeId}`)
           }}
         />
         {notice ? <ScoreNotice message={notice.message} /> : null}
