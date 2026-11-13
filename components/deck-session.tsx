@@ -10,7 +10,7 @@ import { Sentence } from "@/components/sentence"
 import { StatusBlock } from "@/components/status-block"
 import { prefetchLine, setSpeechCacheKey, speechLabel, useLineAudio } from "@/hooks/use-line-audio"
 import { requestJson } from "@/lib/http"
-import { refreshOpenPractice, setSuppressReadyDialog } from "@/lib/practice-job"
+import { refreshOpenPractice, removeOpenPracticeId, setSuppressReadyDialog } from "@/lib/practice-job"
 import type { AppSettings, Award, Deck, DeckCard, DeckResponse, SettingsResponse } from "@/lib/types"
 
 function takeScores(current: Deck, incoming: Deck): Deck {
@@ -116,12 +116,14 @@ export function DeckSession({
       setSuppressReadyDialog(false)
       return
     }
+    // Optimistic: drop this id so New is not blocked while a stale open-list refresh lags.
+    removeOpenPracticeId(id)
     void refreshOpenPractice()
     if (!loadedFinished.current) {
       setAskNext(true)
       setSuppressReadyDialog(true)
     }
-  }, [finished, kind])
+  }, [finished, kind, id])
 
   useEffect(() => {
     if (!settings) return
@@ -191,6 +193,10 @@ export function DeckSession({
     })
       .then((data) => {
         setDeck((latest) => (latest ? takeScores(latest, data.deck) : latest))
+        if (kind === "practice" && isFinished(data.deck)) {
+          removeOpenPracticeId(id)
+          void refreshOpenPractice()
+        }
       })
       .catch((error: unknown) => {
         setDeck((current) =>
@@ -263,6 +269,7 @@ export function DeckSession({
           }}
           onStartNext={(nextPracticeId) => {
             // Unmount dialog before route change so global shortcuts are not blocked by role=dialog.
+            removeOpenPracticeId(id)
             setLeaving(true)
             setAskNext(false)
             setSuppressReadyDialog(false)

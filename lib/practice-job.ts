@@ -62,20 +62,37 @@ export function readOpenPracticeId() {
   return openIds[0] ?? null
 }
 
+/**
+ * Refresh open practice ids from the server.
+ * Calls are serialized so a later refresh is not collapsed into an in-flight
+ * one that may have started before the last award was saved.
+ */
 export function refreshOpenPractice() {
-  openRefresh ??= requestJson<OpenPracticeResponse>("/api/practices?open=1")
-    .then((data) => {
-      if (sameIds(openIds, data.openIds)) return
-      openIds = data.openIds
-      emitOpen()
-    })
+  const prior = openRefresh
+  const mine = (prior ?? Promise.resolve())
+    .catch(() => undefined)
+    .then(() =>
+      requestJson<OpenPracticeResponse>("/api/practices?open=1").then((data) => {
+        if (sameIds(openIds, data.openIds)) return
+        openIds = data.openIds
+        emitOpen()
+      }),
+    )
     .catch(() => {
       // Keep the last known open ids; the next refresh can recover.
     })
     .finally(() => {
-      openRefresh = null
+      if (openRefresh === mine) openRefresh = null
     })
-  return openRefresh
+  openRefresh = mine
+  return mine
+}
+
+/** Drop an id locally (e.g. just finished) so header New is not blocked on a stale list. */
+export function removeOpenPracticeId(id: string) {
+  if (!openIds.includes(id)) return
+  openIds = openIds.filter((entry) => entry !== id)
+  emitOpen()
 }
 
 export function startPractice() {

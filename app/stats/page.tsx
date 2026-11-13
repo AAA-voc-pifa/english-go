@@ -27,8 +27,8 @@ function ScoreSpread({
   highest: number
   buckets: Array<{ label: string; count: number }>
 }) {
-  const bars = buckets.filter((bucket) => bucket.count > 0)
-  const peak = Math.max(...bars.map((bucket) => bucket.count), 1)
+  const total = buckets.reduce((sum, bucket) => sum + bucket.count, 0)
+  const peak = Math.max(...buckets.map((bucket) => bucket.count), 1)
 
   const width = 480
   const height = 220
@@ -37,7 +37,7 @@ function ScoreSpread({
   const padX = 4
   const chartBottom = height - padBottom
   const chartHeight = chartBottom - padTop
-  const slot = bars.length === 0 ? 0 : (width - padX * 2) / bars.length
+  const slot = buckets.length === 0 ? 0 : (width - padX * 2) / buckets.length
   const barWidth = Math.min(slot * 0.52, 36)
 
   return (
@@ -49,34 +49,38 @@ function ScoreSpread({
         </p>
       </div>
 
-      {bars.length === 0 ? (
+      {total === 0 ? (
         <p className="mt-8 text-sm text-muted">Nothing scored yet.</p>
       ) : (
         <svg
           viewBox={`0 0 ${width} ${height}`}
           className="mt-5 block w-full"
           role="img"
-          aria-label={`${title}: ${bars.map((bucket) => `${bucket.label} ${bucket.count}`).join(", ")}`}
+          aria-label={`${title}: ${buckets.map((bucket) => `${bucket.label} ${bucket.count}`).join(", ")}`}
         >
           <line x1={0} y1={chartBottom} x2={width} y2={chartBottom} stroke="var(--line)" strokeWidth={1} />
-          {bars.map((bucket, index) => {
-            const barHeight = Math.max((bucket.count / peak) * chartHeight, 2)
+          {buckets.map((bucket, index) => {
+            const barHeight = bucket.count === 0 ? 0 : Math.max((bucket.count / peak) * chartHeight, 2)
             const x = padX + index * slot + (slot - barWidth) / 2
             const y = chartBottom - barHeight
             const cx = x + barWidth / 2
             return (
               <g key={bucket.label}>
-                <rect x={x} y={y} width={barWidth} height={barHeight} fill="var(--lime)" />
-                <text
-                  x={cx}
-                  y={y - 8}
-                  textAnchor="middle"
-                  fill="var(--ink)"
-                  fontSize={12}
-                  fontFamily="var(--font-mono), ui-monospace, monospace"
-                >
-                  {bucket.count}
-                </text>
+                {bucket.count > 0 ? (
+                  <>
+                    <rect x={x} y={y} width={barWidth} height={barHeight} fill="var(--lime)" />
+                    <text
+                      x={cx}
+                      y={y - 8}
+                      textAnchor="middle"
+                      fill="var(--ink)"
+                      fontSize={12}
+                      fontFamily="var(--font-mono), ui-monospace, monospace"
+                    >
+                      {bucket.count}
+                    </text>
+                  </>
+                ) : null}
                 <text
                   x={cx}
                   y={height - 10}

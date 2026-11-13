@@ -35,9 +35,12 @@ export function NewRoundButton({
   const pathname = usePathname()
   const job = useSyncExternalStore(subscribePracticeJob, readPracticeJob, idlePracticeJob)
   const openIds = useSyncExternalStore(subscribeOpenPractice, readOpenPracticeIds, () => [])
-  const held = job.status === "pending" || job.status === "ready"
   const currentPracticeId = practiceIdFromPath(pathname)
   const onPracticePage = currentPracticeId !== null
+  // Ready for the practice you're already on should not block New (Start next leaves this behind).
+  const held =
+    job.status === "pending" ||
+    (job.status === "ready" && (!currentPracticeId || job.id !== currentPracticeId))
   const otherOpen = onPracticePage && openIds.some((id) => id !== currentPracticeId)
   const resume = !onPracticePage && openIds.length > 0 && !held
   const blocked = held || otherOpen

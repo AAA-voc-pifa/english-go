@@ -2,6 +2,9 @@ import { collections } from "@/lib/store"
 import type { StatsSnapshot } from "@/lib/types"
 import { listAllWords } from "@/lib/voc"
 
+/** my-voc sentinel for graduated / parked words — exclude from score spread. */
+const VOC_SENTINEL = 99999
+
 function round1(value: number): number {
   return Math.round(value * 10) / 10
 }
@@ -13,23 +16,8 @@ function median(sorted: number[]): number {
   return round1((sorted[mid - 1] + sorted[mid]) / 2)
 }
 
-function wordBuckets(points: number[]): Array<{ label: string; count: number }> {
+function scoreBuckets(points: number[]): Array<{ label: string; count: number }> {
   // 0 = untouched; 1–14 includes a single wide award (5/10) before a full deep floor (3×5).
-  const labels = ["0", "1–14", "15–29", "30–49", "50–79", "80–119", "120+"]
-  const counts = [0, 0, 0, 0, 0, 0, 0]
-  for (const value of points) {
-    if (value <= 0) counts[0] += 1
-    else if (value < 15) counts[1] += 1
-    else if (value < 30) counts[2] += 1
-    else if (value < 50) counts[3] += 1
-    else if (value < 80) counts[4] += 1
-    else if (value < 120) counts[5] += 1
-    else counts[6] += 1
-  }
-  return labels.map((label, index) => ({ label, count: counts[index] }))
-}
-
-function sentenceBuckets(points: number[]): Array<{ label: string; count: number }> {
   const labels = ["0", "1–14", "15–29", "30–49", "50–79", "80–119", "120+"]
   const counts = [0, 0, 0, 0, 0, 0, 0]
   for (const value of points) {
@@ -47,7 +35,8 @@ function sentenceBuckets(points: number[]): Array<{ label: string; count: number
 export async function getStats(): Promise<StatsSnapshot> {
   const [{ practices, stars, reviews }, words] = await Promise.all([collections(), listAllWords()])
 
-  const pointValues = words
+  const activeWords = words.filter((item) => item.points < VOC_SENTINEL)
+  const pointValues = activeWords
     .slice()
     .sort((left, right) => left.points - right.points || left.word.localeCompare(right.word))
     .map((item) => item.points)
@@ -90,11 +79,11 @@ export async function getStats(): Promise<StatsSnapshot> {
   return {
     words: {
       total: words.length,
-      average: words.length === 0 ? 0 : round1(totalPoints / words.length),
+      average: pointValues.length === 0 ? 0 : round1(totalPoints / pointValues.length),
       median: median(pointValues),
       lowest: pointValues[0] ?? 0,
       highest: pointValues.at(-1) ?? 0,
-      buckets: wordBuckets(pointValues),
+      buckets: scoreBuckets(pointValues),
     },
     practices: {
       total: practiceDocs.length,
@@ -108,7 +97,7 @@ export async function getStats(): Promise<StatsSnapshot> {
       unscored: favouritePoints.filter((value) => value === 0).length,
       lowest: favouritePoints[0] ?? 0,
       highest: favouritePoints.at(-1) ?? 0,
-      buckets: sentenceBuckets(favouritePoints),
+      buckets: scoreBuckets(favouritePoints),
     },
     reviews: {
       total: reviewDocs.length,
