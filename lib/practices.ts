@@ -1,4 +1,5 @@
 import { ObjectId } from "mongodb"
+import { recordScore } from "@/lib/activity"
 import { ApiError } from "@/lib/api-error"
 import { generateMultiTranslations, generateTranslations } from "@/lib/question-api"
 import { ensureSentence, sentencesByIds } from "@/lib/sentence-content"
@@ -384,5 +385,8 @@ export async function awardPracticeLine(id: string, lineId: string, award: numbe
     throw error
   }
 
+  await recordScore().catch((error: unknown) => {
+    console.error("activity bump failed", error instanceof Error ? error.message : "error")
+  })
   return getPractice(id)
 }

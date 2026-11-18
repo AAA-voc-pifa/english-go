@@ -1,3 +1,4 @@
+import { listActivityHeatmap } from "@/lib/activity"
 import { collections } from "@/lib/store"
 import type { StatsSnapshot } from "@/lib/types"
 import { listAllWords } from "@/lib/voc"
@@ -33,7 +34,11 @@ function scoreBuckets(points: number[]): Array<{ label: string; count: number }>
 }
 
 export async function getStats(): Promise<StatsSnapshot> {
-  const [{ practices, stars, reviews }, words] = await Promise.all([collections(), listAllWords()])
+  const [{ practices, stars, reviews }, words, activity] = await Promise.all([
+    collections(),
+    listAllWords(),
+    listActivityHeatmap(53),
+  ])
 
   const activeWords = words.filter((item) => item.points < VOC_SENTINEL)
   const pointValues = activeWords
@@ -104,5 +109,6 @@ export async function getStats(): Promise<StatsSnapshot> {
       completed: reviewCompleted,
       sentencesScored: reviewScored,
     },
+    activity,
   }
 }

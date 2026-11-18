@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
+import { ActivityHeatmap } from "@/components/activity-heatmap"
 import { KeyButton } from "@/components/key-button"
 import { requestJson } from "@/lib/http"
 import type { StatsResponse, StatsSnapshot } from "@/lib/types"
@@ -169,6 +170,8 @@ export default function StatsPage() {
               hint={`${stats.reviews.completed} finished · ${stats.reviews.sentencesScored} scored`}
             />
           </section>
+
+          <ActivityHeatmap days={stats.activity.days} total={stats.activity.total} />
 
           <section className="grid gap-12 lg:grid-cols-2 lg:items-start">
             <ScoreSpread

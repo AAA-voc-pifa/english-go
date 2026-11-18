@@ -1,4 +1,5 @@
 import { ObjectId } from "mongodb"
+import { recordScore } from "@/lib/activity"
 import { ApiError } from "@/lib/api-error"
 import { parseId } from "@/lib/practices"
 import { sentencesByIds } from "@/lib/sentence-content"
@@ -198,5 +199,9 @@ export async function awardReviewCard(id: string, sentenceId: string, award: num
     ])
     throw new ApiError("Already scored", 409)
   }
+
+  await recordScore().catch((error: unknown) => {
+    console.error("activity bump failed", error instanceof Error ? error.message : "error")
+  })
   return getReview(id)
 }

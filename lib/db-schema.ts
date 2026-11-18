@@ -164,6 +164,12 @@ export const settingsSchema = z.strictObject({
   rate: nonEmptyString,
 })
 
+/** Daily score count for the activity heatmap. `_id` is YYYY-MM-DD. */
+export const activitySchema = z.strictObject({
+  _id: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  count: z.number().int().nonnegative(),
+})
+
 export type PracticeDoc = z.infer<typeof practiceSchema>
 export type PracticeLine = z.infer<typeof practiceLineSchema>
 export type PracticeQuestionRaw = z.infer<typeof practiceQuestionRawSchema>
@@ -172,6 +178,7 @@ export type StarDoc = z.infer<typeof starSchema>
 export type ReviewItemDoc = z.infer<typeof reviewItemSchema>
 export type ReviewDoc = z.infer<typeof reviewSchema>
 export type SettingsDoc = z.infer<typeof settingsSchema>
+export type ActivityDoc = z.infer<typeof activitySchema>
 
 function labelFor(value: unknown, fallback: string): string {
   if (

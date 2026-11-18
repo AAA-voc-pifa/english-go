@@ -82,6 +82,11 @@ export type ReviewListResponse = { reviews: ReviewSummary[] }
 export type SettingsResponse = { settings: AppSettings }
 export type VoicesResponse = { voices: TtsVoice[] }
 
+export type ActivityDay = {
+  date: string
+  count: number
+}
+
 export type StatsSnapshot = {
   words: {
     total: number
@@ -109,6 +114,11 @@ export type StatsSnapshot = {
     total: number
     completed: number
     sentencesScored: number
+  }
+  /** Per-day score counts for the contribution heatmap (not point totals). */
+  activity: {
+    total: number
+    days: ActivityDay[]
   }
 }
 
