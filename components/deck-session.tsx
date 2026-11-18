@@ -11,7 +11,15 @@ import { StatusBlock } from "@/components/status-block"
 import { prefetchLine, setSpeechCacheKey, speechLabel, useLineAudio } from "@/hooks/use-line-audio"
 import { requestJson } from "@/lib/http"
 import { refreshOpenPractice, removeOpenPracticeId, setSuppressReadyDialog } from "@/lib/practice-job"
-import type { AppSettings, Award, Deck, DeckCard, DeckResponse, SettingsResponse } from "@/lib/types"
+import type {
+  AppSettings,
+  Award,
+  Deck,
+  DeckCard,
+  DeckResponse,
+  MnemonicResponse,
+  SettingsResponse,
+} from "@/lib/types"
 
 function takeScores(current: Deck, incoming: Deck): Deck {
   if (current.id !== incoming.id) return current
@@ -55,6 +63,7 @@ export function DeckSession({
   const [actionError, setActionError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [starPending, setStarPending] = useState(false)
+  const [mnemonicPending, setMnemonicPending] = useState(false)
   const [notice, setNotice] = useState<{ id: number; message: string } | null>(null)
   /** After finishing a practice in this visit: ask next step before the result sheet. */
   const [askNext, setAskNext] = useState(false)
@@ -249,6 +258,32 @@ export function DeckSession({
     }
   }
 
+  async function requestMnemonic(item: DeckCard) {
+    if (kind !== "practice" || mnemonicPending || item.mnemonic) return
+    setMnemonicPending(true)
+    setActionError(null)
+    try {
+      const data = await requestJson<MnemonicResponse>("/api/mnemonics", {
+        method: "POST",
+        body: JSON.stringify({ word: item.word }),
+      })
+      setDeck((current) =>
+        current
+          ? {
+              ...current,
+              cards: current.cards.map((entry) =>
+                entry.word === item.word ? { ...entry, mnemonic: data.text } : entry,
+              ),
+            }
+          : current,
+      )
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Couldn't write a mnemonic")
+    } finally {
+      setMnemonicPending(false)
+    }
+  }
+
   if (loading || leaving) return <StatusBlock>Loading…</StatusBlock>
   if (loadError || !deck || !card) {
     return <StatusBlock tone="hot">{loadError ?? "This session is empty"}</StatusBlock>
@@ -319,6 +354,14 @@ export function DeckSession({
           <p lang="zh-CN" className="mt-8 max-w-2xl border-t border-line pt-5 text-lg leading-8 text-ink">
             {card.zh}
           </p>
+          {card.mnemonic ? (
+            <p lang="zh-CN" className="mt-5 max-w-2xl border-l-2 border-lime/50 pl-4 text-base leading-7 text-muted">
+              <span className="mb-1 block font-mono text-[11px] tracking-[0.16em] text-lime uppercase">Mnemonic</span>
+              {card.mnemonic}
+            </p>
+          ) : mnemonicPending && kind === "practice" ? (
+            <p className="mt-5 text-sm text-muted">Writing a mnemonic…</p>
+          ) : null}
         </article>
       </div>
       {soundError ? (
@@ -339,11 +382,14 @@ export function DeckSession({
         award={card.award}
         starred={card.starred}
         starPending={starPending}
+        mnemonicPending={mnemonicPending}
+        hasMnemonic={Boolean(card.mnemonic)}
         onPrev={() => move(deck.cursor - 1)}
         onNext={() => move(deck.cursor + 1)}
         onSpeak={() => void play(card.id)}
         onAward={(points) => void award(card, points)}
         onStar={kind === "practice" ? () => void star(card) : undefined}
+        onMnemonic={kind === "practice" ? () => void requestMnemonic(card) : undefined}
         scoreLabel={kind === "review" ? "Add points to this sentence" : "Add points to this word"}
       />
       {notice ? <ScoreNotice message={notice.message} /> : null}

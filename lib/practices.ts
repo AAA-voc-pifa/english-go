@@ -1,6 +1,7 @@
 import { ObjectId } from "mongodb"
 import { recordScore } from "@/lib/activity"
 import { ApiError } from "@/lib/api-error"
+import { mnemonicsForWords } from "@/lib/mnemonics"
 import { generateMultiTranslations, generateTranslations } from "@/lib/question-api"
 import { ensureSentence, sentencesByIds } from "@/lib/sentence-content"
 import { collections, type PracticeDoc, type PracticeLine, type SentenceDoc } from "@/lib/store"
@@ -84,6 +85,7 @@ function toDeck(
   doc: PracticeDoc,
   sentenceMap: Map<string, SentenceDoc>,
   starred: Set<string>,
+  mnemonics: Map<string, string>,
 ): Deck {
   const ordered = sortedLines(doc)
   const points = new Map(doc.words.map((word) => [word.word, word.points]))
@@ -100,6 +102,7 @@ function toDeck(
       award: line.award,
       points: points.get(sentence.word) ?? 0,
       starred: starred.has(line.sentenceId.toHexString()),
+      mnemonic: mnemonics.get(sentence.word) ?? null,
     }
   })
   const groups: DeckGroup[] = doc.words.map((word) => ({
@@ -122,7 +125,12 @@ function toDeck(
 async function readDeck(doc: PracticeDoc): Promise<Deck> {
   const lines = sortedLines(doc)
   const sentenceMap = await sentencesByIds(lines.map((line) => line.sentenceId))
-  return toDeck(doc, sentenceMap, await starredSentenceIds(lines.map((line) => line.sentenceId)))
+  const words = [...sentenceMap.values()].map((sentence) => sentence.word)
+  const [starred, mnemonics] = await Promise.all([
+    starredSentenceIds(lines.map((line) => line.sentenceId)),
+    mnemonicsForWords(words),
+  ])
+  return toDeck(doc, sentenceMap, starred, mnemonics)
 }
 
 async function pickWords(count: number, busyWords: Set<string>): Promise<VocWord[]> {
@@ -161,7 +169,8 @@ async function persistPractice(
 ): Promise<Deck> {
   const { practices } = await collections()
   await practices.insertOne(practiceDoc)
-  return toDeck(practiceDoc, sentenceMap, new Set())
+  const mnemonics = await mnemonicsForWords([...sentenceMap.values()].map((sentence) => sentence.word))
+  return toDeck(practiceDoc, sentenceMap, new Set(), mnemonics)
 }
 
 async function createDeepPractice(busyWords: Set<string>): Promise<Deck> {

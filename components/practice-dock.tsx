@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Star, Volume2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Lightbulb, Star, Volume2 } from "lucide-react"
 import { KeyButton } from "@/components/key-button"
 import { AWARD_LABEL, type Award } from "@/lib/types"
 
@@ -16,11 +16,14 @@ export function PracticeDock({
   award,
   starred,
   starPending,
+  mnemonicPending,
+  hasMnemonic,
   onPrev,
   onNext,
   onSpeak,
   onAward,
   onStar,
+  onMnemonic,
   scoreLabel,
 }: {
   canPrev: boolean
@@ -30,17 +33,21 @@ export function PracticeDock({
   award: Award | null
   starred?: boolean
   starPending?: boolean
+  mnemonicPending?: boolean
+  hasMnemonic?: boolean
   onPrev: () => void
   onNext: () => void
   onSpeak: () => void
   onAward: (points: Award) => void
   onStar?: () => void
+  onMnemonic?: () => void
   scoreLabel: string
 }) {
+  const navCols = onMnemonic ? "grid-cols-5" : "grid-cols-4"
   return (
     <div className="sticky bottom-0 z-10 border-t border-line bg-bg/95 backdrop-blur pb-[env(safe-area-inset-bottom)]">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:px-4 sm:py-3">
-        <div className="order-2 grid grid-cols-4 gap-1.5 sm:order-none sm:contents">
+        <div className={`order-2 grid ${navCols} gap-1.5 sm:order-none sm:contents`}>
           <KeyButton shortcut="j" onClick={onPrev} disabled={!canPrev} className="h-11 w-full px-0 sm:h-10 sm:w-auto sm:px-3">
             <ChevronLeft aria-hidden="true" className="size-5 sm:hidden" />
             <span className="max-sm:sr-only">Previous</span>
@@ -65,9 +72,26 @@ export function PracticeDock({
               <Star aria-hidden="true" className={starred ? "size-5 fill-current sm:size-4" : "size-5 sm:size-4"} />
               <span className="max-sm:sr-only">{starred ? "Starred" : starPending ? "Starring" : "Star"}</span>
             </KeyButton>
-          ) : (
+          ) : onMnemonic ? null : (
             <span className="sm:hidden" />
           )}
+          {onMnemonic ? (
+            <KeyButton
+              shortcut="m"
+              onClick={onMnemonic}
+              pressed={hasMnemonic}
+              disabled={mnemonicPending || hasMnemonic}
+              className="h-11 w-full px-0 sm:h-10 sm:w-auto sm:px-3"
+            >
+              <Lightbulb
+                aria-hidden="true"
+                className={hasMnemonic ? "size-5 fill-current sm:size-4" : "size-5 sm:size-4"}
+              />
+              <span className="max-sm:sr-only">
+                {hasMnemonic ? "Mnemonic" : mnemonicPending ? "Writing" : "Mnemonic"}
+              </span>
+            </KeyButton>
+          ) : null}
         </div>
         <div className="order-1 grid grid-cols-3 gap-2 sm:order-none sm:contents" role="group" aria-label={scoreLabel}>
           <span className="mx-1 hidden h-6 w-px bg-line sm:block" aria-hidden="true" />

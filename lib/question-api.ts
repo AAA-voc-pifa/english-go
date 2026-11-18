@@ -127,3 +127,18 @@ export async function generateMultiTranslations(
   }
   return { questions, raw: body.raw }
 }
+
+/** DeepSeek-shaped response from GET /mnemonic (not wrapped in `{ data, raw }`). */
+export async function generateMnemonic(word: string): Promise<{ text: string; raw: unknown }> {
+  const body = await fetchQuestion("mnemonic", [word])
+  if (!isRecord(body) || !Array.isArray(body.choices) || body.choices.length === 0) {
+    throw new ApiError(`Mnemonic response was unreadable (${word})`, 502)
+  }
+  const choice = body.choices[0]
+  if (!isRecord(choice) || !isRecord(choice.message) || typeof choice.message.content !== "string") {
+    throw new ApiError(`Mnemonic response was unreadable (${word})`, 502)
+  }
+  const text = choice.message.content.trim()
+  if (!text) throw new ApiError(`Mnemonic for ${word} was empty`, 502)
+  return { text, raw: body }
+}

@@ -1,6 +1,7 @@
 import { ObjectId } from "mongodb"
 import { recordScore } from "@/lib/activity"
 import { ApiError } from "@/lib/api-error"
+import { mnemonicsForWords } from "@/lib/mnemonics"
 import { parseId } from "@/lib/practices"
 import { sentencesByIds } from "@/lib/sentence-content"
 import { collections, type ReviewDoc, type StarDoc } from "@/lib/store"
@@ -13,6 +14,7 @@ function toDeck(
   doc: ReviewDoc,
   content: Map<string, { word: string; en: string; zh: string }>,
   points: Map<string, number>,
+  mnemonics: Map<string, string>,
 ): Deck {
   const cards = doc.items.map((item) => {
     const key = item.sentenceId.toHexString()
@@ -28,6 +30,7 @@ function toDeck(
       award: item.award,
       points: points.get(key) ?? 0,
       starred: true,
+      mnemonic: mnemonics.get(sentence.word) ?? null,
     }
   })
   const last = Math.max(cards.length - 1, 0)
@@ -84,7 +87,8 @@ async function readDeck(doc: ReviewDoc): Promise<Deck> {
     ]),
   )
   const points = new Map(starDocs.map((star) => [star.sentenceId.toHexString(), star.points]))
-  return toDeck(pruned, content, points)
+  const mnemonics = await mnemonicsForWords([...content.values()].map((sentence) => sentence.word))
+  return toDeck(pruned, content, points, mnemonics)
 }
 
 function isOpenReview(doc: ReviewDoc): boolean {

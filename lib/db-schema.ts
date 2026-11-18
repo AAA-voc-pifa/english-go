@@ -170,6 +170,14 @@ export const activitySchema = z.strictObject({
   count: z.number().int().nonnegative(),
 })
 
+/** One LLM mnemonic per word. `_id` is the word string. */
+export const mnemonicSchema = z.strictObject({
+  _id: nonEmptyString,
+  text: nonEmptyString,
+  createdAt: z.date(),
+  raw: z.unknown().optional(),
+})
+
 export type PracticeDoc = z.infer<typeof practiceSchema>
 export type PracticeLine = z.infer<typeof practiceLineSchema>
 export type PracticeQuestionRaw = z.infer<typeof practiceQuestionRawSchema>
@@ -179,6 +187,7 @@ export type ReviewItemDoc = z.infer<typeof reviewItemSchema>
 export type ReviewDoc = z.infer<typeof reviewSchema>
 export type SettingsDoc = z.infer<typeof settingsSchema>
 export type ActivityDoc = z.infer<typeof activitySchema>
+export type MnemonicDoc = z.infer<typeof mnemonicSchema>
 
 function labelFor(value: unknown, fallback: string): string {
   if (

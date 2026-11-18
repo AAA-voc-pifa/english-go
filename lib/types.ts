@@ -33,7 +33,11 @@ export type DeckCard = {
   award: Award | null
   points: number
   starred: boolean
+  /** Stored LLM memory aid for this word; null until generated once. */
+  mnemonic: string | null
 }
+
+export type MnemonicResponse = { word: string; text: string; created: boolean }
 
 export type DeckGroup = {
   key: string
