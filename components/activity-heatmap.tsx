@@ -1,20 +1,12 @@
+"use client"
+
+import { useId, useState } from "react"
 import type { ActivityDay } from "@/lib/types"
 
-const HEAT = [
-  "var(--panel)",
-  "color-mix(in oklab, var(--lime) 22%, var(--panel))",
-  "color-mix(in oklab, var(--lime) 40%, var(--panel))",
-  "color-mix(in oklab, var(--lime) 62%, var(--panel))",
-  "var(--lime)",
-] as const
-
-/** Absolute bands: a full deep/wide round is 9 scores. */
-function heatLevel(count: number): number {
-  if (count <= 0) return 0
-  if (count <= 3) return 1
-  if (count <= 8) return 2
-  if (count <= 17) return 3
-  return 4
+function heatFill(count: number, max: number): string {
+  if (count <= 0 || max <= 0) return "var(--panel)"
+  const t = count / max
+  return `color-mix(in oklab, var(--lime) ${Math.round(t * 100)}%, var(--panel))`
 }
 
 function monthShort(date: string): string {
@@ -30,8 +22,14 @@ function weeksFrom(days: ActivityDay[]): ActivityDay[][] {
   return weeks
 }
 
+type Tip = { date: string; count: number; left: number; top: number }
+
 export function ActivityHeatmap({ days, total }: { days: ActivityDay[]; total: number }) {
   const weeks = weeksFrom(days)
+  const maxCount = days.reduce((max, day) => Math.max(max, day.count), 0)
+  const tipId = useId()
+  const [tip, setTip] = useState<Tip | null>(null)
+
   const cell = 11
   const gap = 3
   const labelW = 28
@@ -57,6 +55,21 @@ export function ActivityHeatmap({ days, total }: { days: ActivityDay[]; total: n
     }
   })
 
+  function showTip(day: ActivityDay, rect: SVGRectElement) {
+    const root = rect.ownerSVGElement?.parentElement
+    if (!root) return
+    const rootBox = root.getBoundingClientRect()
+    const cellBox = rect.getBoundingClientRect()
+    setTip({
+      date: day.date,
+      count: day.count,
+      left: cellBox.left - rootBox.left + cellBox.width / 2,
+      top: cellBox.top - rootBox.top,
+    })
+  }
+
+  const legendSteps = [0, 0.25, 0.5, 0.75, 1]
+
   return (
     <section className="min-w-0">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
@@ -67,7 +80,7 @@ export function ActivityHeatmap({ days, total }: { days: ActivityDay[]; total: n
       </div>
       <p className="mt-2 text-sm text-muted">Each cell is one day. +1 when you score a sentence.</p>
 
-      <div className="mt-5 overflow-x-auto">
+      <div className="relative mt-5 overflow-x-auto" onMouseLeave={() => setTip(null)}>
         <svg
           viewBox={`0 0 ${width} ${height}`}
           className="block min-w-[640px]"
@@ -106,7 +119,7 @@ export function ActivityHeatmap({ days, total }: { days: ActivityDay[]; total: n
             week.map((day, row) => {
               const x = labelW + weekIndex * (cell + gap)
               const y = monthH + row * (cell + gap)
-              const level = heatLevel(day.count)
+              const empty = day.count <= 0
               return (
                 <rect
                   key={day.date}
@@ -115,33 +128,48 @@ export function ActivityHeatmap({ days, total }: { days: ActivityDay[]; total: n
                   width={cell}
                   height={cell}
                   rx={2}
-                  fill={HEAT[level]}
+                  fill={heatFill(day.count, maxCount)}
                   stroke="var(--line)"
-                  strokeWidth={level === 0 ? 1 : 0}
-                >
-                  <title>
-                    {day.date}: {day.count} score{day.count === 1 ? "" : "s"}
-                  </title>
-                </rect>
+                  strokeWidth={empty ? 1 : 0}
+                  aria-describedby={tip?.date === day.date ? tipId : undefined}
+                  onMouseEnter={(event) => showTip(day, event.currentTarget)}
+                />
               )
             }),
           )}
         </svg>
+
+        {tip ? (
+          <div
+            id={tipId}
+            role="tooltip"
+            className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-md bg-ink px-2 py-1 font-mono text-[11px] whitespace-nowrap text-bg shadow-sm"
+            style={{ left: tip.left, top: tip.top - 6 }}
+          >
+            {tip.date}: {tip.count} 次
+          </div>
+        ) : null}
       </div>
 
       <div className="mt-3 flex items-center gap-1.5 font-mono text-[10px] text-muted">
         <span>Less</span>
-        {HEAT.map((fill, level) => (
-          <span
-            key={fill}
-            className="inline-block size-2.5 rounded-[2px]"
-            style={{
-              background: fill,
-              boxShadow: level === 0 ? "inset 0 0 0 1px var(--line)" : undefined,
-            }}
-            aria-hidden="true"
-          />
-        ))}
+        {legendSteps.map((step) => {
+          const fill =
+            step === 0 || maxCount === 0
+              ? "var(--panel)"
+              : heatFill(Math.max(1, Math.round(step * maxCount)), maxCount)
+          return (
+            <span
+              key={step}
+              className="inline-block size-2.5 rounded-[2px]"
+              style={{
+                background: fill,
+                boxShadow: step === 0 || maxCount === 0 ? "inset 0 0 0 1px var(--line)" : undefined,
+              }}
+              aria-hidden="true"
+            />
+          )
+        })}
         <span>More</span>
       </div>
     </section>
