@@ -56,15 +56,12 @@ export function ActivityHeatmap({ days, total }: { days: ActivityDay[]; total: n
   })
 
   function showTip(day: ActivityDay, rect: SVGRectElement) {
-    const root = rect.ownerSVGElement?.parentElement
-    if (!root) return
-    const rootBox = root.getBoundingClientRect()
     const cellBox = rect.getBoundingClientRect()
     setTip({
       date: day.date,
       count: day.count,
-      left: cellBox.left - rootBox.left + cellBox.width / 2,
-      top: cellBox.top - rootBox.top,
+      left: cellBox.left + cellBox.width / 2,
+      top: cellBox.top,
     })
   }
 
@@ -80,7 +77,7 @@ export function ActivityHeatmap({ days, total }: { days: ActivityDay[]; total: n
       </div>
       <p className="mt-2 text-sm text-muted">Each cell is one day. +1 when you score a sentence.</p>
 
-      <div className="relative mt-5 overflow-x-auto" onMouseLeave={() => setTip(null)}>
+      <div className="mt-5 overflow-x-auto" onMouseLeave={() => setTip(null)}>
         <svg
           viewBox={`0 0 ${width} ${height}`}
           className="block min-w-[640px]"
@@ -138,18 +135,18 @@ export function ActivityHeatmap({ days, total }: { days: ActivityDay[]; total: n
             }),
           )}
         </svg>
-
-        {tip ? (
-          <div
-            id={tipId}
-            role="tooltip"
-            className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-md bg-ink px-2 py-1 font-mono text-[11px] whitespace-nowrap text-bg shadow-sm"
-            style={{ left: tip.left, top: tip.top - 6 }}
-          >
-            {tip.date}: {tip.count} 次
-          </div>
-        ) : null}
       </div>
+
+      {tip ? (
+        <div
+          id={tipId}
+          role="tooltip"
+          className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full rounded-md bg-ink px-2 py-1 font-mono text-[11px] whitespace-nowrap text-bg shadow-sm"
+          style={{ left: tip.left, top: tip.top - 6 }}
+        >
+          {tip.date}: {tip.count} 次
+        </div>
+      ) : null}
 
       <div className="mt-3 flex items-center gap-1.5 font-mono text-[10px] text-muted">
         <span>Less</span>
