@@ -6,7 +6,7 @@ import { useShortcut } from "@/components/shortcuts"
 
 type Tone = "lime" | "ghost" | "score"
 
-const PRESS_MS = 140
+const PRESS_MS = 180
 
 export function KeyButton({
   shortcut,
@@ -56,6 +56,7 @@ export function KeyButton({
   const sizing = className ?? ""
   const padding = /\b!?p[xy]?-/.test(sizing) ? "" : "px-3"
   const height = /\b!?h-|\b!?size-|\b!?min-h-/.test(sizing) ? "" : "h-11 sm:h-10"
+  const hitting = flash
 
   return (
     <button
@@ -67,21 +68,26 @@ export function KeyButton({
       aria-pressed={pressed}
       className={cn(
         "inline-flex items-center justify-center gap-2 border text-sm select-none touch-manipulation",
-        "transition-[transform,background-color,border-color,opacity,filter] duration-100 ease-out",
-        "active:scale-[0.96] active:brightness-95",
-        flash && "scale-[0.96] brightness-95",
-        "disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 disabled:active:brightness-100",
+        "transition-[transform,background-color,border-color,color,box-shadow] duration-75 ease-out",
+        "active:scale-[0.92]",
+        hitting && "scale-[0.92]",
+        "disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100",
         padding,
         height,
-        tone === "lime" && "border-lime bg-lime font-medium text-lime-ink hover:bg-lime/90 active:bg-lime/75",
+        tone === "lime" &&
+          (hitting
+            ? "border-lime-ink bg-lime-ink font-medium text-lime shadow-[inset_0_0_0_2px_var(--lime)]"
+            : "border-lime bg-lime font-medium text-lime-ink hover:bg-lime/90 active:border-lime-ink active:bg-lime-ink active:text-lime active:shadow-[inset_0_0_0_2px_var(--lime)]"),
         tone === "ghost" &&
-          (pressed
-            ? "border-lime bg-panel text-lime active:bg-line/70"
-            : "border-line bg-panel text-ink hover:border-ink/30 active:border-lime/50 active:bg-line/55"),
+          (hitting || pressed
+            ? hitting
+              ? "border-lime bg-lime font-medium text-lime-ink shadow-[0_0_0_2px_color-mix(in_oklab,var(--lime)_45%,transparent)]"
+              : "border-lime bg-panel text-lime active:bg-lime active:text-lime-ink"
+            : "border-line bg-panel text-ink hover:border-ink/30 active:border-lime active:bg-lime active:font-medium active:text-lime-ink active:shadow-[0_0_0_2px_color-mix(in_oklab,var(--lime)_45%,transparent)]"),
         tone === "score" &&
-          (pressed
-            ? "border-lime bg-lime font-medium text-lime-ink active:bg-lime/75"
-            : "border-line bg-panel text-ink hover:border-lime/50 active:border-lime active:bg-lime/25"),
+          (hitting || pressed
+            ? "border-lime bg-lime font-medium text-lime-ink shadow-[0_0_0_2px_color-mix(in_oklab,var(--lime)_45%,transparent)]"
+            : "border-line bg-panel text-ink hover:border-lime/50 active:border-lime active:bg-lime active:font-medium active:text-lime-ink active:shadow-[0_0_0_2px_color-mix(in_oklab,var(--lime)_45%,transparent)]"),
         className,
       )}
     >
