@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { DeckRail } from "@/components/deck-rail"
 import { EarReview } from "@/components/ear-review"
 import { EarReviewDialog } from "@/components/ear-review-dialog"
+import { MnemonicView } from "@/components/mnemonic-view"
 import { PracticeDock } from "@/components/practice-dock"
 import { PracticeNextDialog } from "@/components/practice-next-dialog"
 import { ResultSheet } from "@/components/result-sheet"
@@ -291,7 +292,7 @@ export function DeckSession({
           ? {
               ...current,
               cards: current.cards.map((entry) =>
-                entry.word === item.word ? { ...entry, mnemonic: data.text } : entry,
+                entry.word === item.word ? { ...entry, mnemonic: data.data } : entry,
               ),
             }
           : current,
@@ -402,10 +403,10 @@ export function DeckSession({
             {card.zh}
           </p>
           {card.mnemonic ? (
-            <p lang="zh-CN" className="mt-5 max-w-2xl border-l-2 border-lime/50 pl-4 text-base leading-7 text-muted">
-              <span className="mb-1 block font-mono text-[11px] tracking-[0.16em] text-lime uppercase">Mnemonic</span>
-              {card.mnemonic}
-            </p>
+            <div className="mt-5 max-w-2xl border-l-2 border-lime/50 pl-4">
+              <p className="font-mono text-[11px] tracking-[0.16em] text-lime uppercase">Mnemonic</p>
+              <MnemonicView data={card.mnemonic} compact />
+            </div>
           ) : mnemonicPending && kind === "practice" ? (
             <p className="mt-5 text-sm text-muted">Writing a mnemonic…</p>
           ) : null}

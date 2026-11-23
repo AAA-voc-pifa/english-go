@@ -1,7 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
-import { ChartColumn, List, Settings, Star } from "lucide-react"
+import { BookMarked, ChartColumn, List, Settings, Star } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { NewRoundButton } from "@/components/new-round-button"
@@ -69,6 +69,7 @@ export function AppHeader() {
           <NewRoundButton label="New" tone="ghost" shortcut="n" compact />
           <HeaderNavLink href="/practices" shortcut="h" label="Practices" icon={<List aria-hidden="true" className="size-4" />} />
           <HeaderNavLink href="/sentences" shortcut="c" label="Favourites" icon={<Star aria-hidden="true" className="size-4" />} />
+          <HeaderNavLink href="/mnemonics" label="Mnemonics" icon={<BookMarked aria-hidden="true" className="size-4" />} />
           <HeaderNavLink href="/stats" shortcut="t" label="Stats" icon={<ChartColumn aria-hidden="true" className="size-4" />} />
           <HeaderNavLink href="/settings" label="Settings" icon={<Settings aria-hidden="true" className="size-4" />} />
         </nav>

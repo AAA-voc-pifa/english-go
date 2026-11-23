@@ -5,7 +5,7 @@ import { mnemonicsForWords } from "@/lib/mnemonics"
 import { parseId } from "@/lib/practices"
 import { sentencesByIds } from "@/lib/sentence-content"
 import { collections, type ReviewDoc, type StarDoc } from "@/lib/store"
-import { isAward, type Deck, type ReviewSummary } from "@/lib/types"
+import { isAward, type Deck, type MnemonicData, type ReviewSummary } from "@/lib/types"
 import { increaseWordPoints } from "@/lib/voc"
 
 const REVIEW_SIZE = 9
@@ -14,7 +14,7 @@ function toDeck(
   doc: ReviewDoc,
   content: Map<string, { word: string; en: string; zh: string }>,
   points: Map<string, number>,
-  mnemonics: Map<string, string>,
+  mnemonics: Map<string, MnemonicData>,
 ): Deck {
   const cards = doc.items.map((item) => {
     const key = item.sentenceId.toHexString()

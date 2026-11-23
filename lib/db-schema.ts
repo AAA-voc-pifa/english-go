@@ -170,11 +170,33 @@ export const activitySchema = z.strictObject({
   count: z.number().int().nonnegative(),
 })
 
+/** Structured mnemonic payload from GET /mnemonic-j. */
+export const mnemonicEtymologySchema = z.strictObject({
+  components: z.array(nonEmptyString).min(1),
+  explanation: nonEmptyString,
+})
+
+export const mnemonicHomophonicSchema = z.strictObject({
+  list: z.array(nonEmptyString).min(1).max(3),
+  best: z.number().int().min(0).max(2),
+})
+
+export const mnemonicDataSchema = z.strictObject({
+  etymology: mnemonicEtymologySchema.nullable(),
+  variant: z.string().nullable(),
+  homophonic: mnemonicHomophonicSchema.nullable(),
+  abbreviation: z.string().nullable(),
+  meme: z.string().nullable(),
+  other: z.string().nullable(),
+  all_in_one: z.string().nullable(),
+})
+
 /** One LLM mnemonic per word. `_id` is the word string. */
 export const mnemonicSchema = z.strictObject({
   _id: nonEmptyString,
-  text: nonEmptyString,
+  data: mnemonicDataSchema,
   createdAt: z.date(),
+  updatedAt: z.date().optional(),
   raw: z.unknown().optional(),
 })
 
@@ -187,6 +209,9 @@ export type ReviewItemDoc = z.infer<typeof reviewItemSchema>
 export type ReviewDoc = z.infer<typeof reviewSchema>
 export type SettingsDoc = z.infer<typeof settingsSchema>
 export type ActivityDoc = z.infer<typeof activitySchema>
+export type MnemonicEtymology = z.infer<typeof mnemonicEtymologySchema>
+export type MnemonicHomophonic = z.infer<typeof mnemonicHomophonicSchema>
+export type MnemonicData = z.infer<typeof mnemonicDataSchema>
 export type MnemonicDoc = z.infer<typeof mnemonicSchema>
 
 function labelFor(value: unknown, fallback: string): string {

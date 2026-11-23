@@ -10,6 +10,7 @@ import {
   type Deck,
   type DeckCard,
   type DeckGroup,
+  type MnemonicData,
   type PracticeKind,
   type PracticeSummary,
   type PracticeWord,
@@ -85,7 +86,7 @@ function toDeck(
   doc: PracticeDoc,
   sentenceMap: Map<string, SentenceDoc>,
   starred: Set<string>,
-  mnemonics: Map<string, string>,
+  mnemonics: Map<string, MnemonicData>,
 ): Deck {
   const ordered = sortedLines(doc)
   const points = new Map(doc.words.map((word) => [word.word, word.points]))

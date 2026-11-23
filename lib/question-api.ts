@@ -1,4 +1,5 @@
 import { ApiError } from "@/lib/api-error"
+import { mnemonicDataSchema, type MnemonicData } from "@/lib/db-schema"
 import { env } from "@/lib/env"
 
 const WORD = /^[A-Za-z]+(?:-[A-Za-z]+)*$/
@@ -128,17 +129,15 @@ export async function generateMultiTranslations(
   return { questions, raw: body.raw }
 }
 
-/** DeepSeek-shaped response from GET /mnemonic (not wrapped in `{ data, raw }`). */
-export async function generateMnemonic(word: string): Promise<{ text: string; raw: unknown }> {
-  const body = await fetchQuestion("mnemonic", [word])
-  if (!isRecord(body) || !Array.isArray(body.choices) || body.choices.length === 0) {
+/** Structured mnemonic from GET /mnemonic-j (`{ data, raw }`). */
+export async function generateMnemonic(word: string): Promise<{ data: MnemonicData; raw: unknown }> {
+  const body = await fetchQuestion("mnemonic-j", [word])
+  if (!isRecord(body) || !("raw" in body)) {
     throw new ApiError(`Mnemonic response was unreadable (${word})`, 502)
   }
-  const choice = body.choices[0]
-  if (!isRecord(choice) || !isRecord(choice.message) || typeof choice.message.content !== "string") {
+  const parsed = mnemonicDataSchema.safeParse(body.data)
+  if (!parsed.success) {
     throw new ApiError(`Mnemonic response was unreadable (${word})`, 502)
   }
-  const text = choice.message.content.trim()
-  if (!text) throw new ApiError(`Mnemonic for ${word} was empty`, 502)
-  return { text, raw: body }
+  return { data: parsed.data, raw: body.raw }
 }

@@ -1,4 +1,7 @@
+import type { MnemonicData } from "@/lib/db-schema"
 import type { RateId, TtsVoice } from "@/lib/speech"
+
+export type { MnemonicData }
 
 export type Award = 5 | 10 | 15
 
@@ -33,11 +36,28 @@ export type DeckCard = {
   award: Award | null
   points: number
   starred: boolean
-  /** Stored LLM memory aid for this word; null until generated once. */
-  mnemonic: string | null
+  /** Stored structured mnemonic for this word; null until generated once. */
+  mnemonic: MnemonicData | null
 }
 
-export type MnemonicResponse = { word: string; text: string; created: boolean }
+export type MnemonicResponse = { word: string; data: MnemonicData; created: boolean }
+
+export type MnemonicSummary = {
+  word: string
+  allInOne: string | null
+  createdAt: string
+  updatedAt: string | null
+}
+
+export type MnemonicDetail = {
+  word: string
+  data: MnemonicData
+  createdAt: string
+  updatedAt: string | null
+}
+
+export type MnemonicListResponse = { mnemonics: MnemonicSummary[]; nextCursor: string | null }
+export type MnemonicDetailResponse = { mnemonic: MnemonicDetail }
 
 export type DeckGroup = {
   key: string

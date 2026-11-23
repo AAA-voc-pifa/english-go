@@ -1,8 +1,18 @@
 import { route } from "@/lib/api-error"
 import { requirePassword } from "@/lib/auth"
-import { ensureMnemonic } from "@/lib/mnemonics"
+import { ensureMnemonic, listMnemonics } from "@/lib/mnemonics"
+import { readCursor, readLimit } from "@/lib/query"
 
 export const maxDuration = 90
+
+export function GET(request: Request) {
+  return route(async () => {
+    requirePassword(request)
+    const url = new URL(request.url)
+    const { mnemonics, nextCursor } = await listMnemonics(readLimit(url), readCursor(url))
+    return Response.json({ mnemonics, nextCursor })
+  })
+}
 
 export function POST(request: Request) {
   return route(async () => {
@@ -12,7 +22,7 @@ export function POST(request: Request) {
     if (!word) return Response.json({ error: "Nothing to remember" }, { status: 400 })
     const result = await ensureMnemonic(word)
     return Response.json(
-      { word, text: result.text, created: result.created },
+      { word, data: result.data, created: result.created },
       { status: result.created ? 201 : 200 },
     )
   })
