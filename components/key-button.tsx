@@ -1,12 +1,11 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
 import { cn } from "@/lib/cn"
 import { useShortcut } from "@/components/shortcuts"
+import { usePressFlash } from "@/hooks/use-press-flash"
+import { controlBase, controlPress } from "@/lib/control"
 
 type Tone = "lime" | "ghost" | "score"
-
-const PRESS_MS = 180
 
 export function KeyButton({
   shortcut,
@@ -27,23 +26,7 @@ export function KeyButton({
   className?: string
   children: React.ReactNode
 }) {
-  const [flash, setFlash] = useState(false)
-  const flashTimer = useRef<number | null>(null)
-
-  useEffect(() => {
-    return () => {
-      if (flashTimer.current !== null) window.clearTimeout(flashTimer.current)
-    }
-  }, [])
-
-  function bump() {
-    setFlash(true)
-    if (flashTimer.current !== null) window.clearTimeout(flashTimer.current)
-    flashTimer.current = window.setTimeout(() => {
-      setFlash(false)
-      flashTimer.current = null
-    }, PRESS_MS)
-  }
+  const { flash, bump } = usePressFlash()
 
   function fire() {
     if (disabled) return
@@ -56,7 +39,6 @@ export function KeyButton({
   const sizing = className ?? ""
   const padding = /\b!?p[xy]?-/.test(sizing) ? "" : "px-3"
   const height = /\b!?h-|\b!?size-|\b!?min-h-/.test(sizing) ? "" : "h-11 sm:h-10"
-  const hitting = flash
 
   return (
     <button
@@ -67,27 +49,20 @@ export function KeyButton({
       aria-keyshortcuts={shortcut ? shortcut.toUpperCase() : undefined}
       aria-pressed={pressed}
       className={cn(
-        "inline-flex items-center justify-center gap-2 border text-sm select-none touch-manipulation",
-        "transition-[transform,background-color,border-color,color,box-shadow] duration-75 ease-out",
-        "active:scale-[0.92]",
-        hitting && "scale-[0.92]",
-        "disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100",
+        controlBase(),
+        controlPress(flash),
+        "disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 disabled:active:brightness-100",
         padding,
         height,
-        tone === "lime" &&
-          (hitting
-            ? "border-lime-ink bg-lime-ink font-medium text-lime shadow-[inset_0_0_0_2px_var(--lime)]"
-            : "border-lime bg-lime font-medium text-lime-ink hover:bg-lime/90 active:border-lime-ink active:bg-lime-ink active:text-lime active:shadow-[inset_0_0_0_2px_var(--lime)]"),
+        tone === "lime" && "border-lime bg-lime font-medium text-lime-ink hover:bg-lime/90 active:bg-lime/80",
         tone === "ghost" &&
-          (hitting || pressed
-            ? hitting
-              ? "border-lime bg-lime font-medium text-lime-ink shadow-[0_0_0_2px_color-mix(in_oklab,var(--lime)_45%,transparent)]"
-              : "border-lime bg-panel text-lime active:bg-lime active:text-lime-ink"
-            : "border-line bg-panel text-ink hover:border-ink/30 active:border-lime active:bg-lime active:font-medium active:text-lime-ink active:shadow-[0_0_0_2px_color-mix(in_oklab,var(--lime)_45%,transparent)]"),
+          (pressed
+            ? "border-lime bg-panel text-lime active:bg-line/50"
+            : "border-line bg-panel text-ink hover:border-ink/30 active:border-lime/40 active:bg-line/50"),
         tone === "score" &&
-          (hitting || pressed
-            ? "border-lime bg-lime font-medium text-lime-ink shadow-[0_0_0_2px_color-mix(in_oklab,var(--lime)_45%,transparent)]"
-            : "border-line bg-panel text-ink hover:border-lime/50 active:border-lime active:bg-lime active:font-medium active:text-lime-ink active:shadow-[0_0_0_2px_color-mix(in_oklab,var(--lime)_45%,transparent)]"),
+          (pressed
+            ? "border-lime bg-lime font-medium text-lime-ink active:bg-lime/80"
+            : "border-line bg-panel text-ink hover:border-lime/50 active:border-lime/70 active:bg-lime/20"),
         className,
       )}
     >

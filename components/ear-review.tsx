@@ -141,7 +141,7 @@ export function EarReview({ cards, onExit }: { cards: DeckCard[]; onExit: () => 
 
       <div className="flex flex-wrap gap-2">
         {waitingContinue ? (
-          <KeyButton tone="lime" shortcut="c" autoFocus onClick={onContinue}>
+          <KeyButton tone="lime" shortcut="g" autoFocus onClick={onContinue}>
             Continue
           </KeyButton>
         ) : null}
