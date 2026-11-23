@@ -2,6 +2,7 @@
 
 import { useEffect, useSyncExternalStore } from "react"
 import { useRouter } from "next/navigation"
+import { KeyButton } from "@/components/key-button"
 import {
   dismissPracticeJob,
   idlePracticeJob,
@@ -47,24 +48,17 @@ export function PracticeReadyDialog() {
           </h2>
           <p className="text-muted">Start it now?</p>
           <div className="flex gap-2">
-            <button
-              type="button"
+            <KeyButton
+              tone="lime"
               autoFocus
               onClick={() => {
                 dismissPracticeJob()
                 router.push(`/practice/${id}`)
               }}
-              className="inline-flex h-10 items-center justify-center border border-lime bg-lime px-4 text-sm font-medium text-lime-ink"
             >
               Start
-            </button>
-            <button
-              type="button"
-              onClick={dismissPracticeJob}
-              className="inline-flex h-10 items-center justify-center border border-line bg-panel px-4 text-sm"
-            >
-              Later
-            </button>
+            </KeyButton>
+            <KeyButton onClick={dismissPracticeJob}>Later</KeyButton>
           </div>
         </div>
       </div>
@@ -95,36 +89,28 @@ export function PracticeReadyDialog() {
           ) : null}
           <div className="flex flex-wrap gap-2">
             {retryable ? (
-              <button
-                type="button"
-                autoFocus
-                onClick={startPractice}
-                className="inline-flex h-10 items-center justify-center border border-lime bg-lime px-4 text-sm font-medium text-lime-ink"
-              >
+              <KeyButton tone="lime" autoFocus onClick={startPractice}>
                 Retry
-              </button>
+              </KeyButton>
             ) : null}
             {conflict && openId ? (
-              <button
-                type="button"
+              <KeyButton
+                tone="lime"
                 autoFocus={!retryable}
                 onClick={() => {
                   dismissPracticeJob()
                   router.push(`/practice/${openId}`)
                 }}
-                className="inline-flex h-10 items-center justify-center border border-lime bg-lime px-4 text-sm font-medium text-lime-ink"
               >
                 Continue
-              </button>
+              </KeyButton>
             ) : null}
-            <button
-              type="button"
+            <KeyButton
               autoFocus={!retryable && !(conflict && openId)}
               onClick={dismissPracticeJob}
-              className="inline-flex h-10 items-center justify-center border border-line bg-panel px-4 text-sm"
             >
               Close
-            </button>
+            </KeyButton>
           </div>
         </div>
       </div>

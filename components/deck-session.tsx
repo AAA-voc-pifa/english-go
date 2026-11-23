@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { DeckRail } from "@/components/deck-rail"
+import { EarReview } from "@/components/ear-review"
+import { EarReviewDialog } from "@/components/ear-review-dialog"
 import { PracticeDock } from "@/components/practice-dock"
 import { PracticeNextDialog } from "@/components/practice-next-dialog"
 import { ResultSheet } from "@/components/result-sheet"
@@ -67,16 +69,24 @@ export function DeckSession({
   const [notice, setNotice] = useState<{ id: number; message: string } | null>(null)
   /** After finishing a practice in this visit: ask next step before the result sheet. */
   const [askNext, setAskNext] = useState(false)
+  /** After finishing a review in this visit: offer ear review once. */
+  const [askEar, setAskEar] = useState(false)
+  const [earMode, setEarMode] = useState(false)
   const [leaving, setLeaving] = useState(false)
   const savedCursor = useRef<number | null>(null)
   const scoring = useRef(new Set<string>())
   const loadedFinished = useRef(false)
+  /** Offer ear review at most once per visit after finishing. */
+  const earOffered = useRef(false)
   const { target, phase, error: soundError, play, stop, dismissError } = useLineAudio()
 
   useEffect(() => {
     let cancelled = false
     loadedFinished.current = false
+    earOffered.current = false
     setAskNext(false)
+    setAskEar(false)
+    setEarMode(false)
     setLeaving(false)
     const deckPromise = requestJson<DeckResponse>(endpoint(kind, id))
     const settingsPromise = requestJson<SettingsResponse>("/api/settings").catch(() => null)
@@ -133,6 +143,15 @@ export function DeckSession({
       setSuppressReadyDialog(true)
     }
   }, [finished, kind, id])
+
+  useEffect(() => {
+    if (kind !== "review" || !finished || earMode || earOffered.current) return
+    if (!loadedFinished.current) {
+      earOffered.current = true
+      setAskEar(true)
+      stop()
+    }
+  }, [finished, kind, earMode, stop])
 
   useEffect(() => {
     if (!settings) return
@@ -310,6 +329,34 @@ export function DeckSession({
             setSuppressReadyDialog(false)
             router.push(`/practice/${nextPracticeId}`)
           }}
+        />
+        {notice ? <ScoreNotice message={notice.message} /> : null}
+      </>
+    )
+  }
+
+  if (finished && kind === "review" && earMode) {
+    return (
+      <>
+        <EarReview cards={deck.cards} onExit={() => setEarMode(false)} />
+        {notice ? <ScoreNotice message={notice.message} /> : null}
+      </>
+    )
+  }
+
+  if (finished && kind === "review" && askEar) {
+    return (
+      <>
+        <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-3 px-5 py-8">
+          <p className="font-mono text-[11px] tracking-[0.18em] text-good uppercase">Done</p>
+          <h1 className="text-3xl tracking-tight">Review finished</h1>
+        </main>
+        <EarReviewDialog
+          onStart={() => {
+            setAskEar(false)
+            setEarMode(true)
+          }}
+          onExit={() => setAskEar(false)}
         />
         {notice ? <ScoreNotice message={notice.message} /> : null}
       </>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useSyncExternalStore } from "react"
+import { KeyButton } from "@/components/key-button"
 import {
   dismissPracticeJob,
   idlePracticeJob,
@@ -10,39 +11,6 @@ import {
   subscribeOpenPractice,
   subscribePracticeJob,
 } from "@/lib/practice-job"
-
-function DialogButton({
-  shortcut,
-  tone = "ghost",
-  autoFocus = false,
-  onClick,
-  children,
-}: {
-  shortcut: string
-  tone?: "lime" | "ghost"
-  autoFocus?: boolean
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      autoFocus={autoFocus}
-      onClick={onClick}
-      aria-keyshortcuts={shortcut.toUpperCase()}
-      className={
-        tone === "lime"
-          ? "inline-flex h-10 items-center justify-center gap-2 border border-lime bg-lime px-4 text-sm font-medium text-lime-ink"
-          : "inline-flex h-10 items-center justify-center gap-2 border border-line bg-panel px-4 text-sm"
-      }
-    >
-      {children}
-      <kbd className="hidden h-5 min-w-5 place-items-center border border-current/30 px-1 font-mono text-[10px] leading-none sm:inline-grid">
-        {shortcut.toUpperCase()}
-      </kbd>
-    </button>
-  )
-}
 
 export function PracticeNextDialog({
   practiceId,
@@ -113,21 +81,21 @@ export function PracticeNextDialog({
         <p className="text-muted">This practice is done.</p>
         <div className="flex flex-wrap gap-2">
           {canStartNext && nextId ? (
-            <DialogButton shortcut="n" tone="lime" autoFocus onClick={startNext}>
+            <KeyButton shortcut="n" tone="lime" autoFocus onClick={startNext}>
               Start next
-            </DialogButton>
+            </KeyButton>
           ) : null}
           {canGenerate ? (
-            <DialogButton shortcut="n" tone="lime" autoFocus onClick={generate}>
+            <KeyButton shortcut="n" tone="lime" autoFocus onClick={generate}>
               New practice
-            </DialogButton>
+            </KeyButton>
           ) : null}
           {job.status === "pending" && !canStartNext ? (
             <p className="w-full text-sm text-muted">Writing the next practice…</p>
           ) : null}
-          <DialogButton shortcut="r" autoFocus={!canStartNext && !canGenerate} onClick={onRest}>
+          <KeyButton shortcut="r" autoFocus={!canStartNext && !canGenerate} onClick={onRest}>
             Rest
-          </DialogButton>
+          </KeyButton>
         </div>
       </div>
     </div>

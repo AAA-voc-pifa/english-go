@@ -52,6 +52,15 @@ export function prefetchLine(lineId: string) {
   void loadClip(lineId).catch(() => undefined)
 }
 
+/** Resolve a cached TTS blob (shared with ear-review playlist). */
+export function ensureClip(lineId: string): Promise<Blob> {
+  return loadClip(lineId)
+}
+
+export function stopSpeech() {
+  stopActive()
+}
+
 export function speechLabel(lineId: string, target: string | null, phase: Phase): string {
   if (target !== lineId || phase === "idle") return "Speak"
   if (phase === "playing") return "Playing"
