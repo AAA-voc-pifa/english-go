@@ -70,8 +70,8 @@ export function MnemonicView({
       {data.etymology ? (
         <Section label="Etymology" compact={compact}>
           <ul className="list-disc space-y-1 pl-5">
-            {data.etymology.components.map((item) => (
-              <li key={item}>
+            {data.etymology.components.map((item, index) => (
+              <li key={index}>
                 <RichLine text={item} />
               </li>
             ))}
@@ -94,7 +94,7 @@ export function MnemonicView({
         <Section label="Homophonic" compact={compact}>
           <ol className="list-decimal space-y-1 pl-5">
             {data.homophonic.list.map((item, index) => (
-              <li key={item} className={index === data.homophonic?.best ? "text-ink" : undefined}>
+              <li key={index} className={index === data.homophonic?.best ? "text-ink" : undefined}>
                 <RichLine text={item} />
                 {index === data.homophonic?.best ? (
                   <span className="ml-2 font-mono text-[10px] tracking-[0.14em] text-lime uppercase">Best</span>
