@@ -138,10 +138,13 @@ async function pickWords(count: number, busyWords: Set<string>): Promise<VocWord
   const lowest = await listLowest(count, 0, busyWords)
   if (lowest.length === 0) {
     if (busyWords.size > 0) throw new ApiError("Every word is already in an open practice", 409)
-    throw new ApiError("The word list is empty. Add words in my-voc first.", 409)
+    throw new ApiError("No idle words left (new or recently practiced stay out for 24h).", 409)
   }
   if (lowest.length < count) {
-    throw new ApiError(`Need ${count} free words to start a practice, only ${lowest.length} left`, 409)
+    throw new ApiError(
+      `Need ${count} idle words to start a practice, only ${lowest.length} left (24h cooldown)`,
+      409,
+    )
   }
   return lowest
 }

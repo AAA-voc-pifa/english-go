@@ -93,12 +93,20 @@ export async function verifyVocPassword(): Promise<void> {
   throw new Error(`Word list auth failed (${response.status})`)
 }
 
+/** Skip words whose my-voc `update_at` is newer than this (new or just practiced). */
+export const PRACTICE_IDLE_SECONDS = 24 * 60 * 60
+
 export async function listLowest(
   count: number,
   points: number,
   exclude: Iterable<string> = [],
+  idleSeconds: number = PRACTICE_IDLE_SECONDS,
 ): Promise<VocWord[]> {
-  const url = vocUrl("voc", { count: String(count), points: String(points) })
+  const url = vocUrl("voc", {
+    count: String(count),
+    points: String(points),
+    idle_seconds: String(idleSeconds),
+  })
   for (const word of exclude) url.searchParams.append("exclude", word)
   const body = await vocFetch(url, "GET")
   if (!isRecord(body) || body.ok !== true || !Array.isArray(body.data)) {
