@@ -66,7 +66,7 @@ export function DeckSession({
   const [actionError, setActionError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [starPending, setStarPending] = useState(false)
-  const [mnemonicPending, setMnemonicPending] = useState(false)
+  const [mnemonicPending, setMnemonicPending] = useState<ReadonlySet<string>>(() => new Set())
   const [notice, setNotice] = useState<{ id: number; message: string } | null>(null)
   /** After finishing a practice in this visit: ask next step before the result sheet. */
   const [askNext, setAskNext] = useState(false)
@@ -76,6 +76,7 @@ export function DeckSession({
   const [leaving, setLeaving] = useState(false)
   const savedCursor = useRef<number | null>(null)
   const scoring = useRef(new Set<string>())
+  const mnemonicInFlight = useRef(new Set<string>())
   const loadedFinished = useRef(false)
   /** Offer ear review at most once per visit after finishing. */
   const earOffered = useRef(false)
@@ -279,20 +280,22 @@ export function DeckSession({
   }
 
   async function requestMnemonic(item: DeckCard) {
-    if (kind !== "practice" || mnemonicPending || item.mnemonic) return
-    setMnemonicPending(true)
+    if (kind !== "practice" || item.mnemonic || mnemonicInFlight.current.has(item.word)) return
+    const word = item.word
+    mnemonicInFlight.current.add(word)
+    setMnemonicPending((current) => new Set(current).add(word))
     setActionError(null)
     try {
       const data = await requestJson<MnemonicResponse>("/api/mnemonics", {
         method: "POST",
-        body: JSON.stringify({ word: item.word }),
+        body: JSON.stringify({ word }),
       })
       setDeck((current) =>
         current
           ? {
               ...current,
               cards: current.cards.map((entry) =>
-                entry.word === item.word ? { ...entry, mnemonic: data.data } : entry,
+                entry.word === word ? { ...entry, mnemonic: data.data } : entry,
               ),
             }
           : current,
@@ -300,7 +303,12 @@ export function DeckSession({
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "Couldn't write a mnemonic")
     } finally {
-      setMnemonicPending(false)
+      mnemonicInFlight.current.delete(word)
+      setMnemonicPending((current) => {
+        const next = new Set(current)
+        next.delete(word)
+        return next
+      })
     }
   }
 
@@ -384,6 +392,7 @@ export function DeckSession({
     kind === "review" ? item.id === card.id : item.word === card.word,
   )
   const place = siblings.findIndex((item) => item.id === card.id) + 1
+  const cardMnemonicPending = mnemonicPending.has(card.word)
 
   return (
     <main className="flex flex-1 flex-col">
@@ -407,7 +416,7 @@ export function DeckSession({
               <p className="font-mono text-[11px] tracking-[0.16em] text-lime uppercase">Mnemonic</p>
               <MnemonicView data={card.mnemonic} compact />
             </div>
-          ) : mnemonicPending && kind === "practice" ? (
+          ) : cardMnemonicPending && kind === "practice" ? (
             <p className="mt-5 text-sm text-muted">Writing a mnemonic…</p>
           ) : null}
         </article>
@@ -430,7 +439,7 @@ export function DeckSession({
         award={card.award}
         starred={card.starred}
         starPending={starPending}
-        mnemonicPending={mnemonicPending}
+        mnemonicPending={cardMnemonicPending}
         hasMnemonic={Boolean(card.mnemonic)}
         onPrev={() => move(deck.cursor - 1)}
         onNext={() => move(deck.cursor + 1)}
