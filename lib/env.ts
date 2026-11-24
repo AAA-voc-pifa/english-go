@@ -6,19 +6,25 @@ function required(name: string): string {
   return value
 }
 
-function origin(name: string): string {
-  return required(name).replace(/\/+$/, "")
+function port(name: string): number {
+  const raw = required(name)
+  const value = Number(raw)
+  if (!Number.isInteger(value) || value < 1 || value > 65535) {
+    throw new ApiError(`Invalid ${name}`, 500)
+  }
+  return value
+}
+
+function localOrigin(portNumber: number): string {
+  return `http://127.0.0.1:${portNumber}`
 }
 
 export function env() {
   return {
     mongodbUri: required("MONGODB_URI"),
-    mongodbDb: process.env.MONGODB_DB?.trim() || "english-go",
-    vocBase: origin("VOC_API_BASE"),
-    vocPassword: required("VOC_API_PASSWORD"),
-    questionBase: origin("QUESTION_API_BASE"),
-    questionPassword: required("QUESTION_API_PASSWORD"),
-    ttsBase: origin("TTS_API_BASE"),
+    vocBase: localOrigin(port("VOC_API_PORT")),
+    questionBase: localOrigin(port("QUESTION_API_PORT")),
+    ttsBase: localOrigin(port("TTS_API_PORT")),
     ttsPassword: required("TTS_API_PASSWORD"),
     appPassword: required("APP_PASSWORD"),
   }

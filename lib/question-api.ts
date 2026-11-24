@@ -48,7 +48,6 @@ async function fetchQuestion(path: string, words: string[], timeoutMs = QUESTION
   let response: Response
   try {
     response = await fetch(url, {
-      headers: { password: env().questionPassword },
       cache: "no-store",
       signal: AbortSignal.timeout(timeoutMs),
     })

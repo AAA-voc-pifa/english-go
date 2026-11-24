@@ -8,7 +8,7 @@ const globalForMongo = globalThis as unknown as {
 }
 
 export async function getDb(): Promise<Db> {
-  const { mongodbUri, mongodbDb } = env()
+  const { mongodbUri } = env()
   if (!globalForMongo.mongoClient || globalForMongo.mongoUri !== mongodbUri) {
     const client = new MongoClient(mongodbUri, { serverSelectionTimeoutMS: 3000 })
     try {
@@ -20,5 +20,6 @@ export async function getDb(): Promise<Db> {
     globalForMongo.mongoClient = client
     globalForMongo.mongoUri = mongodbUri
   }
-  return globalForMongo.mongoClient.db(mongodbDb)
+  // Database name comes from the path in MONGODB_URI.
+  return globalForMongo.mongoClient.db()
 }

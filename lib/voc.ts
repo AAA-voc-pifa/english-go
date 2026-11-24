@@ -24,7 +24,6 @@ async function vocFetch(url: URL, method: "GET" | "POST"): Promise<unknown> {
   try {
     response = await fetch(url, {
       method,
-      headers: { Authentication: env().vocPassword },
       cache: "no-store",
       signal: AbortSignal.timeout(15_000),
     })
@@ -46,7 +45,6 @@ function vocMessage(body: unknown, status: number): string {
   if (isRecord(body) && typeof body.error === "string" && body.error) {
     return `Word list: ${body.error}`
   }
-  if (status === 401) return "The word list rejected the password. Check VOC_API_PASSWORD"
   return `Word list failed (${status})`
 }
 
@@ -69,28 +67,24 @@ function readWordDetail(value: unknown): VocWordDetail {
   return { ...word, addedAt: value.add_at, updatedAt: value.update_at }
 }
 
-export async function verifyVocPassword(): Promise<void> {
+export async function verifyVoc(): Promise<void> {
   let response: Response
   try {
     response = await fetch(vocUrl("auth"), {
       method: "GET",
-      headers: { Authentication: env().vocPassword },
       cache: "no-store",
       signal: AbortSignal.timeout(15_000),
     })
   } catch (error) {
     if (error instanceof Error && error.name === "TimeoutError") {
-      throw new Error("Word list auth timed out")
+      throw new Error("Word list timed out")
     }
     throw new Error("Can't reach the word list")
   }
 
   const body: unknown = await response.json().catch(() => null)
   if (response.ok && isRecord(body) && body.ok === true) return
-  if (response.status === 401 || (isRecord(body) && body.ok === false)) {
-    throw new Error("VOC_API_PASSWORD was rejected")
-  }
-  throw new Error(`Word list auth failed (${response.status})`)
+  throw new Error(`Word list check failed (${response.status})`)
 }
 
 /** Skip words whose my-voc `update_at` is newer than this (new or just practiced). */

@@ -64,11 +64,11 @@ async function main() {
     console.error("Missing MONGODB_URI (load via --env-file=.env.local)")
     process.exit(2)
   }
-  const dbName = process.env.MONGODB_DB?.trim() || "english-go"
 
   const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000 })
   await client.connect()
-  const db = client.db(dbName)
+  // Database name comes from the path in MONGODB_URI.
+  const db = client.db()
 
   try {
     const practices = db.collection("practices")
@@ -87,7 +87,7 @@ async function main() {
         db.listCollections({}, { nameOnly: true }).toArray(),
       ])
 
-    console.log(`Checking ${dbName}`)
+    console.log(`Checking ${db.databaseName}`)
     console.log(
       `counts: practices=${practiceDocs.length} sentences=${sentenceDocs.length} stars=${starDocs.length} reviews=${reviewDocs.length}`,
     )
