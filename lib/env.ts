@@ -15,16 +15,21 @@ function port(name: string): number {
   return value
 }
 
-function localOrigin(portNumber: number): string {
-  return `http://127.0.0.1:${portNumber}`
+/** Optional host for in-docker service DNS; defaults to loopback for local `pnpm dev`. */
+function host(name: string, fallback = "127.0.0.1"): string {
+  return process.env[name]?.trim() || fallback
+}
+
+function serviceOrigin(hostEnv: string, portEnv: string): string {
+  return `http://${host(hostEnv)}:${port(portEnv)}`
 }
 
 export function env() {
   return {
     mongodbUri: required("MONGODB_URI"),
-    vocBase: localOrigin(port("VOC_API_PORT")),
-    questionBase: localOrigin(port("QUESTION_API_PORT")),
-    ttsBase: localOrigin(port("TTS_API_PORT")),
+    myVocBase: serviceOrigin("MY_VOC_API_HOST", "MY_VOC_API_PORT"),
+    llm4vocBase: serviceOrigin("LLM4VOC_API_HOST", "LLM4VOC_API_PORT"),
+    ttsBase: serviceOrigin("TTS_API_HOST", "TTS_API_PORT"),
     ttsPassword: required("TTS_API_PASSWORD"),
     appPassword: required("APP_PASSWORD"),
   }

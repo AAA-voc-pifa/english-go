@@ -2,7 +2,7 @@ import { ObjectId } from "mongodb"
 import { recordScore } from "@/lib/activity"
 import { ApiError } from "@/lib/api-error"
 import { mnemonicsForWords } from "@/lib/mnemonics"
-import { generateMultiTranslations, generateTranslations } from "@/lib/question-api"
+import { generateMultiTranslations, generateTranslations } from "@/lib/llm4voc"
 import { ensureSentence, sentencesByIds } from "@/lib/sentence-content"
 import { collections, type PracticeDoc, type PracticeLine, type SentenceDoc } from "@/lib/store"
 import {

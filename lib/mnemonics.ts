@@ -7,7 +7,7 @@ import {
   type MnemonicDoc,
 } from "@/lib/db-schema"
 import { getDb } from "@/lib/mongo"
-import { generateMnemonic } from "@/lib/question-api"
+import { generateMnemonic } from "@/lib/llm4voc"
 import type { MnemonicDetail, MnemonicSummary } from "@/lib/types"
 import { validatedCollection } from "@/lib/validated-collection"
 

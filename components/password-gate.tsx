@@ -1,7 +1,7 @@
 "use client"
 
 import { usePathname } from "next/navigation"
-import { useState, useSyncExternalStore, type FormEvent } from "react"
+import { Suspense, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react"
 import { AppHeader } from "@/components/app-header"
 import { PracticeReadyDialog } from "@/components/practice-ready"
 import { passwordHeaders, readPassword, subscribePassword, writePassword } from "@/lib/client-auth"
@@ -15,20 +15,32 @@ function isMnemonicRoute(pathname: string | null): boolean {
   return pathname === "/mnemonics" || Boolean(pathname?.startsWith("/mnemonics/"))
 }
 
-export function PasswordGate({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname()
+export function PasswordGate({ children }: { children: ReactNode }) {
   const stored = useSyncExternalStore(subscribePassword, readPassword, unknownPassword)
   const unlocked = Boolean(stored)
-  const shell = unlocked && !isMnemonicRoute(pathname)
 
   return (
     <>
-      {shell ? <AppHeader /> : null}
-      {shell ? <PracticeReadyDialog /> : null}
+      {unlocked ? (
+        <Suspense fallback={null}>
+          <AppShell />
+        </Suspense>
+      ) : null}
       <div key={unlocked ? "in" : "out"} className="flex min-h-0 flex-1 flex-col">
         {children}
       </div>
       {unlocked ? null : <PasswordCover mode={stored === null ? "loading" : "prompt"} />}
+    </>
+  )
+}
+
+function AppShell() {
+  const pathname = usePathname()
+  if (isMnemonicRoute(pathname)) return null
+  return (
+    <>
+      <AppHeader />
+      <PracticeReadyDialog />
     </>
   )
 }

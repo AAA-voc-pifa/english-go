@@ -1,0 +1,27 @@
+services:
+  my-voc:
+    image: my-voc:latest
+    pull_policy: never
+    ports:
+      - "127.0.0.1:20001:8000"
+    environment:
+      MONGODB_URI: ${MY_VOC_MONGODB_URI:?未设置 my-voc 服务的 MongoDB URI}
+    restart: unless-stopped
+
+  llm4voc:
+    image: llm4voc:latest
+    pull_policy: never
+    ports:
+      - "127.0.0.1:20002:8000"
+    environment:
+      deepseek_apikey: ${LLM4VOC_DEEPSEEK_APIKEY:?未设置 llm4voc 服务的 DeepSeek API Key}
+    restart: unless-stopped
+
+  edge-tts-server:
+    image: edge-tts-server:latest
+    pull_policy: never
+    ports:
+      - "127.0.0.1:60001:8000"
+    environment:
+      password: ${TTS_API_PASSWORD:?未设置 edge-tts-server 服务的密码}
+    restart: unless-stopped

@@ -2,6 +2,7 @@ import { ApiError } from "@/lib/api-error"
 import { mnemonicDataSchema, type MnemonicData } from "@/lib/db-schema"
 import { env } from "@/lib/env"
 
+/** Matches llm4voc word query: letters, optional hyphen compounds. */
 const WORD = /^[A-Za-z]+(?:-[A-Za-z]+)*$/
 
 export type GeneratedQuestion = {
@@ -30,18 +31,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
 }
 
-const QUESTION_TIMEOUT_MS = 90_000
-/** Mnemonic-j can think a long time; keep room under the route maxDuration. */
+const LLM_TIMEOUT_MS = 90_000
+/** `/mnemonic-j` can think a long time; keep room under the route maxDuration. */
 const MNEMONIC_TIMEOUT_MS = 180_000
 
-async function fetchQuestion(path: string, words: string[], timeoutMs = QUESTION_TIMEOUT_MS): Promise<unknown> {
+async function fetchLlm4voc(path: string, words: string[], timeoutMs = LLM_TIMEOUT_MS): Promise<unknown> {
   for (const word of words) {
     if (!WORD.test(word)) {
-      throw new ApiError(`"${word}" can't be sent to the question service`, 400)
+      throw new ApiError(`"${word}" can't be sent to llm4voc`, 400)
     }
   }
 
-  const url = new URL(path, `${env().questionBase}/`)
+  const url = new URL(path, `${env().llm4vocBase}/`)
   for (const word of words) url.searchParams.append("word", word)
   const label = words.join(", ")
 
@@ -53,28 +54,30 @@ async function fetchQuestion(path: string, words: string[], timeoutMs = QUESTION
     })
   } catch (error) {
     if (error instanceof Error && error.name === "TimeoutError") {
-      throw new ApiError(`Question timed out (${label})`, 504)
+      throw new ApiError(`llm4voc timed out (${label})`, 504)
     }
-    throw new ApiError(`Can't reach the question service (${label})`, 502)
+    throw new ApiError(`Can't reach llm4voc (${label})`, 502)
   }
 
   const text = await response.text()
   if (!response.ok) {
+    // Plain-text quirks from llm4voc: baD requesT / noT founD / unknowN erroR
     const detail = text.replace(/\s+/g, " ").trim().slice(0, 180)
-    throw new ApiError(detail ? `Question failed (${label}): ${detail}` : `Question failed (${label})`, 502)
+    throw new ApiError(detail ? `llm4voc failed (${label}): ${detail}` : `llm4voc failed (${label})`, 502)
   }
 
   try {
     return JSON.parse(text)
   } catch {
-    throw new ApiError(`Question response was not JSON (${label})`, 502)
+    throw new ApiError(`llm4voc response was not JSON (${label})`, 502)
   }
 }
 
+/** GET /e2c — three EN→ZH sentences for one word. */
 export async function generateTranslations(word: string): Promise<GeneratedQuestions> {
-  const body = await fetchQuestion("e2c", [word])
+  const body = await fetchLlm4voc("e2c", [word])
   if (!isRecord(body) || !isRecord(body.data) || !Array.isArray(body.data.questions) || !("raw" in body)) {
-    throw new ApiError(`Question response was unreadable (${word})`, 502)
+    throw new ApiError(`llm4voc response was unreadable (${word})`, 502)
   }
 
   const questions = body.data.questions.map((item, index) => {
@@ -93,13 +96,14 @@ export async function generateTranslations(word: string): Promise<GeneratedQuest
   return { word, questions, raw: body.raw }
 }
 
+/** GET /e2c-multi — exactly three words → one sentence each, same order. */
 export async function generateMultiTranslations(
   words: [string, string, string],
 ): Promise<GeneratedMultiQuestions> {
   const label = words.join(", ")
-  const body = await fetchQuestion("e2c-multi", words)
+  const body = await fetchLlm4voc("e2c-multi", words)
   if (!isRecord(body) || !isRecord(body.data) || !Array.isArray(body.data.questions) || !("raw" in body)) {
-    throw new ApiError(`Question response was unreadable (${label})`, 502)
+    throw new ApiError(`llm4voc response was unreadable (${label})`, 502)
   }
 
   const questions = body.data.questions.map((item, index) => {
@@ -132,9 +136,9 @@ export async function generateMultiTranslations(
   return { questions, raw: body.raw }
 }
 
-/** Structured mnemonic from GET /mnemonic-j (`{ data, raw }`). */
+/** GET /mnemonic-j — structured mnemonic `{ data, raw }`. */
 export async function generateMnemonic(word: string): Promise<{ data: MnemonicData; raw: unknown }> {
-  const body = await fetchQuestion("mnemonic-j", [word], MNEMONIC_TIMEOUT_MS)
+  const body = await fetchLlm4voc("mnemonic-j", [word], MNEMONIC_TIMEOUT_MS)
   if (!isRecord(body) || !("raw" in body)) {
     throw new ApiError(`Mnemonic response was unreadable (${word})`, 502)
   }

@@ -6,6 +6,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
 }
 
+function ttsDetail(text: string, fallback: string): string {
+  const trimmed = text.replace(/\s+/g, " ").trim().slice(0, 180)
+  if (!trimmed) return fallback
+  try {
+    const body: unknown = JSON.parse(trimmed)
+    if (isRecord(body) && typeof body.detail === "string" && body.detail) {
+      return body.detail
+    }
+  } catch {
+    // plain text
+  }
+  return trimmed
+}
+
 async function ttsFetch(path: string, init?: RequestInit): Promise<Response> {
   const { ttsBase, ttsPassword } = env()
   const url = new URL(path.replace(/^\//, ""), `${ttsBase}/`)
@@ -48,22 +62,33 @@ function readVoice(value: unknown): TtsVoice | null {
   }
 }
 
+/** GET /auth — 204 on success; header `password` required. */
 export async function verifyTtsPassword(): Promise<void> {
   const response = await ttsFetch("auth")
   if (response.status === 204 || response.ok) return
-  const detail = (await response.text().catch(() => "")).replace(/\s+/g, " ").trim().slice(0, 180)
+  const detail = ttsDetail(await response.text().catch(() => ""), "")
   if (response.status === 403 || response.status === 401) {
-    throw new Error("Speech rejected the password. Check TTS_API_PASSWORD")
+    throw new Error(detail ? `Speech rejected the password: ${detail}` : "Speech rejected the password. Check TTS_API_PASSWORD")
   }
   throw new Error(detail ? `Speech auth failed: ${detail}` : `Speech auth failed (${response.status})`)
 }
 
-export async function listVoices(): Promise<TtsVoice[]> {
-  const response = await ttsFetch("voice")
+/** GET /voice — optional gender / locale / language filters. */
+export async function listVoices(filter?: {
+  gender?: "Female" | "Male"
+  locale?: string
+  language?: string
+}): Promise<TtsVoice[]> {
+  const query = new URLSearchParams()
+  if (filter?.gender) query.set("gender", filter.gender)
+  if (filter?.locale) query.set("locale", filter.locale)
+  if (filter?.language) query.set("language", filter.language)
+  const suffix = query.size > 0 ? `?${query}` : ""
+
+  const response = await ttsFetch(`voice${suffix}`)
   const text = await response.text()
   if (!response.ok) {
-    const detail = text.replace(/\s+/g, " ").trim().slice(0, 180)
-    throw new ApiError(detail ? `Couldn't load voices: ${detail}` : "Couldn't load voices", 502)
+    throw new ApiError(`Couldn't load voices: ${ttsDetail(text, "unknown error")}`, 502)
   }
 
   let body: unknown
@@ -84,6 +109,7 @@ export async function voiceExists(id: string): Promise<boolean> {
   return voices.some((item) => item.id === id)
 }
 
+/** GET /tts — streaming MP3; `rate` like `+0%` (optional upstream, default +0%). */
 export async function synthesize(text: string, speech: { voice: string; rate: string }): Promise<Response> {
   const { ttsBase, ttsPassword } = env()
   const url = new URL("tts", `${ttsBase}/`)
@@ -106,8 +132,8 @@ export async function synthesize(text: string, speech: { voice: string; rate: st
   }
 
   if (!response.ok || !response.body) {
-    const detail = (await response.text().catch(() => "")).replace(/\s+/g, " ").trim().slice(0, 180)
-    throw new ApiError(detail ? `Speech failed: ${detail}` : "Speech failed", 502)
+    const detail = ttsDetail(await response.text().catch(() => ""), "Speech failed")
+    throw new ApiError(`Speech failed: ${detail}`, 502)
   }
 
   return new Response(response.body, {

@@ -1,6 +1,6 @@
 # English Go
 
-Personal English practice app (Next.js + MongoDB). Word list lives in external **my-voc**; this app generates sentences, scores them, stars favourites, and reviews.
+Personal English practice app (Next.js + MongoDB). Word list lives in external **my-voc**; sentence/mnemonic generation via **llm4voc**; speech via **edge-tts-server**. This app scores practice, stars favourites, and reviews.
 
 ## Development stance
 
@@ -17,6 +17,12 @@ Active solo development. Prefer **logically elegant** models and code over produ
 - **Review** — re-score favourites → points go to the **star**, and `ceil(award*2/3)` to the word.
 
 Data: `sentences` = word/en/zh · `stars` = sentenceId + points · `practices` / `reviews` reference `sentenceId` only.
+
+## External services
+
+- my-voc: `http://127.0.0.1:${MY_VOC_API_PORT}/docs`
+- llm4voc: https://raw.githubusercontent.com/AAA-voc-pifa/llm4voc/refs/heads/main/http_api.md
+- edge-tts-server: `http://127.0.0.1:${TTS_API_PORT}/docs`
 
 ## Intentional
 

@@ -12,11 +12,33 @@ export type VocWordDetail = VocWord & {
 }
 
 function vocUrl(path: string, query?: Record<string, string>): URL {
-  const url = new URL(path.replace(/^\//, ""), `${env().vocBase}/`)
+  const url = new URL(path.replace(/^\//, ""), `${env().myVocBase}/`)
   if (query) {
     for (const [key, value] of Object.entries(query)) url.searchParams.set(key, value)
   }
   return url
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null
+}
+
+/** my-voc: business failure → 200 + `{ ok: false, error }`; bad params → 422. */
+function vocMessage(body: unknown, status: number): string {
+  if (isRecord(body) && typeof body.error === "string" && body.error) {
+    return `Word list: ${body.error}`
+  }
+  if (isRecord(body) && Array.isArray(body.detail)) {
+    const parts = body.detail
+      .map((item) => {
+        if (!isRecord(item) || typeof item.msg !== "string") return null
+        const loc = Array.isArray(item.loc) ? item.loc.filter((part) => part !== "query" && part !== "body").join(".") : ""
+        return loc ? `${loc}: ${item.msg}` : item.msg
+      })
+      .filter((part): part is string => Boolean(part))
+    if (parts.length > 0) return `Word list: ${parts.join("; ")}`
+  }
+  return `Word list failed (${status})`
 }
 
 async function vocFetch(url: URL, method: "GET" | "POST"): Promise<unknown> {
@@ -41,17 +63,6 @@ async function vocFetch(url: URL, method: "GET" | "POST"): Promise<unknown> {
   return body
 }
 
-function vocMessage(body: unknown, status: number): string {
-  if (isRecord(body) && typeof body.error === "string" && body.error) {
-    return `Word list: ${body.error}`
-  }
-  return `Word list failed (${status})`
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}
-
 function readWord(value: unknown): VocWord {
   if (!isRecord(value) || typeof value.word !== "string" || typeof value.points !== "number") {
     throw new ApiError("The word list response was unreadable", 502)
@@ -67,10 +78,17 @@ function readWordDetail(value: unknown): VocWordDetail {
   return { ...word, addedAt: value.add_at, updatedAt: value.update_at }
 }
 
+function requireOk(body: unknown): asserts body is { ok: true; data: unknown } {
+  if (!isRecord(body) || body.ok !== true) {
+    throw new ApiError(vocMessage(body, 200), 502)
+  }
+}
+
+/** my-voc has no `/auth`; probe a cheap always-200 endpoint. */
 export async function verifyVoc(): Promise<void> {
   let response: Response
   try {
-    response = await fetch(vocUrl("auth"), {
+    response = await fetch(vocUrl("voc/exist/a"), {
       method: "GET",
       cache: "no-store",
       signal: AbortSignal.timeout(15_000),
@@ -83,13 +101,17 @@ export async function verifyVoc(): Promise<void> {
   }
 
   const body: unknown = await response.json().catch(() => null)
-  if (response.ok && isRecord(body) && body.ok === true) return
+  if (response.ok && isRecord(body) && body.ok === true && typeof body.data === "boolean") return
   throw new Error(`Word list check failed (${response.status})`)
 }
 
 /** Skip words whose my-voc `update_at` is newer than this (new or just practiced). */
 export const PRACTICE_IDLE_SECONDS = 24 * 60 * 60
 
+/**
+ * Lowest-points words; my-voc also applies `points` to each (use 0 to reserve via `update_at` only).
+ * `idle_seconds` filters by `update_at` age.
+ */
 export async function listLowest(
   count: number,
   points: number,
@@ -103,7 +125,8 @@ export async function listLowest(
   })
   for (const word of exclude) url.searchParams.append("exclude", word)
   const body = await vocFetch(url, "GET")
-  if (!isRecord(body) || body.ok !== true || !Array.isArray(body.data)) {
+  requireOk(body)
+  if (!Array.isArray(body.data)) {
     throw new ApiError("The word list response was unreadable", 502)
   }
   return body.data.map(readWord)
@@ -111,7 +134,8 @@ export async function listLowest(
 
 export async function listAllWords(): Promise<VocWordDetail[]> {
   const body = await vocFetch(vocUrl("voc/all"), "GET")
-  if (!isRecord(body) || body.ok !== true || !Array.isArray(body.data)) {
+  requireOk(body)
+  if (!Array.isArray(body.data)) {
     throw new ApiError("The word list response was unreadable", 502)
   }
   return body.data.map(readWordDetail)
@@ -119,10 +143,7 @@ export async function listAllWords(): Promise<VocWordDetail[]> {
 
 export async function getWordPoints(word: string): Promise<number> {
   const body = await vocFetch(vocUrl(`voc/detail/${encodeURIComponent(word)}`), "GET")
-  if (!isRecord(body) || body.ok !== true) {
-    const message = isRecord(body) && typeof body.error === "string" ? body.error : "Couldn't read the word score"
-    throw new ApiError(`Word list: ${message}`, 502)
-  }
+  requireOk(body)
   return readWord(body.data).points
 }
 
@@ -131,10 +152,7 @@ export async function addWordPoints(word: string, points: number): Promise<void>
     vocUrl(`voc/points/${encodeURIComponent(word)}`, { points: String(points) }),
     "POST",
   )
-  if (!isRecord(body) || body.ok !== true) {
-    const message = isRecord(body) && typeof body.error === "string" ? body.error : "Couldn't add points"
-    throw new ApiError(`Word list: ${message}`, 502)
-  }
+  requireOk(body)
 }
 
 export async function increaseWordPoints(word: string, delta: number): Promise<number> {
