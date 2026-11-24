@@ -108,22 +108,43 @@ export async function ensureMnemonic(
   }
 }
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
 export async function listMnemonics(
   limit = 20,
   cursor?: string,
+  q?: string,
 ): Promise<{ mnemonics: MnemonicSummary[]; nextCursor: string | null }> {
   const pageSize = Math.min(Math.max(limit, 1), 50)
   const mnemonics = await coll()
 
-  const filter: Record<string, unknown> = {}
+  const clauses: Record<string, unknown>[] = []
+  const needle = q?.trim()
+  if (needle) {
+    const pattern = escapeRegex(needle)
+    clauses.push({
+      $or: [
+        { _id: { $regex: pattern, $options: "i" } },
+        { "data.all_in_one": { $regex: pattern, $options: "i" } },
+      ],
+    })
+  }
+
   if (cursor) {
     const anchor = await mnemonics.findOne({ _id: cursor })
     if (!anchor) return { mnemonics: [], nextCursor: null }
-    filter.$or = [
-      { createdAt: { $lt: anchor.createdAt } },
-      { createdAt: anchor.createdAt, _id: { $gt: anchor._id } },
-    ]
+    clauses.push({
+      $or: [
+        { createdAt: { $lt: anchor.createdAt } },
+        { createdAt: anchor.createdAt, _id: { $gt: anchor._id } },
+      ],
+    })
   }
+
+  const filter =
+    clauses.length === 0 ? {} : clauses.length === 1 ? clauses[0]! : { $and: clauses }
 
   const docs = await mnemonics.findMany(filter, {
     sort: { createdAt: -1, _id: 1 },

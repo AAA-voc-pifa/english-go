@@ -310,13 +310,7 @@ export function MnemonicEditor({ word }: { word: string }) {
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-5 py-8 pb-28">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="font-mono text-[11px] tracking-[0.2em] text-muted uppercase">Mnemonic</p>
-          <h1 className="mt-2 font-serif text-3xl tracking-tight sm:text-4xl">{word}</h1>
-          <p className="mt-2 text-sm text-muted">
-            Toggle angles on or off. Empty off sections stay null.
-          </p>
-        </div>
+        <h1 className="font-serif text-3xl tracking-tight sm:text-4xl">{word}</h1>
         <KeyButton shortcut="b" onClick={() => router.push("/mnemonics")}>
           Back
         </KeyButton>

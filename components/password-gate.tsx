@@ -1,5 +1,6 @@
 "use client"
 
+import { usePathname } from "next/navigation"
 import { useState, useSyncExternalStore, type FormEvent } from "react"
 import { AppHeader } from "@/components/app-header"
 import { PracticeReadyDialog } from "@/components/practice-ready"
@@ -10,14 +11,20 @@ function unknownPassword(): string | null {
   return null
 }
 
+function isMnemonicRoute(pathname: string | null): boolean {
+  return pathname === "/mnemonics" || Boolean(pathname?.startsWith("/mnemonics/"))
+}
+
 export function PasswordGate({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
   const stored = useSyncExternalStore(subscribePassword, readPassword, unknownPassword)
   const unlocked = Boolean(stored)
+  const shell = unlocked && !isMnemonicRoute(pathname)
 
   return (
     <>
-      {unlocked ? <AppHeader /> : null}
-      {unlocked ? <PracticeReadyDialog /> : null}
+      {shell ? <AppHeader /> : null}
+      {shell ? <PracticeReadyDialog /> : null}
       <div key={unlocked ? "in" : "out"} className="flex min-h-0 flex-1 flex-col">
         {children}
       </div>

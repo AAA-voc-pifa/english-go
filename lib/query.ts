@@ -8,3 +8,8 @@ export function readCursor(url: URL): string | undefined {
   const cursor = url.searchParams.get("cursor")
   return cursor && cursor.length > 0 ? cursor : undefined
 }
+
+export function readQuery(url: URL, key = "q"): string | undefined {
+  const value = url.searchParams.get(key)?.trim()
+  return value && value.length > 0 ? value : undefined
+}
