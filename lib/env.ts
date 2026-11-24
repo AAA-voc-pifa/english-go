@@ -15,13 +15,8 @@ function port(name: string): number {
   return value
 }
 
-/** Optional host for in-docker service DNS; defaults to loopback for local `pnpm dev`. */
-function host(name: string, fallback = "127.0.0.1"): string {
-  return process.env[name]?.trim() || fallback
-}
-
 function serviceOrigin(hostEnv: string, portEnv: string): string {
-  return `http://${host(hostEnv)}:${port(portEnv)}`
+  return `http://${required(hostEnv)}:${port(portEnv)}`
 }
 
 export function env() {

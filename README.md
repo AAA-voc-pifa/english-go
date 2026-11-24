@@ -1,14 +1,15 @@
 # English Go
 
-+ 环境变量见 `.env.example`
-+ 底层依赖
-	+ [my-voc](https://github.com/AAA-voc-pifa/voc-api)
-	+ [llm4voc](https://github.com/AAA-voc-pifa/llm4voc)
-	+ [tts-server](https://github.com/AAA-voc-pifa/edge-tts-server)
+底层依赖:
+
++ [单词本 my-voc](https://github.com/AAA-voc-pifa/voc-api)
++ [生成例句、尼莫 llm4voc](https://github.com/AAA-voc-pifa/llm4voc)
++ [合成例句语音 tts-server](https://github.com/AAA-voc-pifa/edge-tts-server)
 
 ## DEV
 
-##### 底层服务
+底层服务:
+
 ```sh
 # 启动依赖服务
 # --env-file “解析 compose 文件里的 ${var} 时”的变量来源
@@ -25,7 +26,8 @@ docker compose \
 	down
 ```
 
-##### English Go
+English Go:
+
 ```sh
 pnpm dev
 ```

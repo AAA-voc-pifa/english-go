@@ -10,6 +10,10 @@ Active solo development. Prefer **logically elegant** models and code over produ
 - Choose the clearer domain shape even when a safer shortcut would work.
 - Still fix real bugs — elegance is not an excuse for broken logic.
 
+## Environment variables
+
+- Do **not** give any env var a default in code. Missing → fail loudly (`required` / compose `${VAR:?…}`).
+
 ## Domain
 
 - **Practice** — score lines 5/10/15 → points go to the **word** (my-voc). Kinds: **deep** (fewer words, more sentences each) and **wide** (more words, one sentence each).
