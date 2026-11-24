@@ -1,0 +1,23 @@
+include:
+  - path: ../dev/deps/compose.yml
+
+services:
+  english-go:
+    image: english-go:latest
+    ports:
+      - "${PORT:?未设置 PORT}:8000"
+    environment:
+      MONGODB_URI: ${MONGODB_URI:?未设置 english-go 的 MongoDB URI}
+      APP_PASSWORD: ${APP_PASSWORD:?未设置 english-go 的 APP_PASSWORD}
+      TTS_API_PASSWORD: ${TTS_API_PASSWORD:?未设置 TTS_API_PASSWORD}
+      TTS_API_HOST: edge-tts-server
+      TTS_API_PORT: "8000"
+      MY_VOC_API_HOST: my-voc
+      MY_VOC_API_PORT: "8000"
+      LLM4VOC_API_HOST: llm4voc
+      LLM4VOC_API_PORT: "8000"
+    depends_on:
+      - my-voc
+      - llm4voc
+      - edge-tts-server
+    restart: unless-stopped

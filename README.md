@@ -29,3 +29,11 @@ docker compose \
 ```sh
 pnpm dev
 ```
+
+## Deploy
+
+```sh
+docker compose \
+	-f ./docker/pro/compose.yml \
+	up -d
+```
