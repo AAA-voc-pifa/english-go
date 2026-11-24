@@ -3,7 +3,7 @@ import { requirePassword } from "@/lib/auth"
 import { ensureMnemonic, listMnemonics } from "@/lib/mnemonics"
 import { readCursor, readLimit } from "@/lib/query"
 
-export const maxDuration = 90
+export const maxDuration = 180
 
 export function GET(request: Request) {
   return route(async () => {

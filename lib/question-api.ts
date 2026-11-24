@@ -30,7 +30,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
 }
 
-async function fetchQuestion(path: string, words: string[]): Promise<unknown> {
+const QUESTION_TIMEOUT_MS = 90_000
+/** Mnemonic-j can think a long time; keep room under the route maxDuration. */
+const MNEMONIC_TIMEOUT_MS = 180_000
+
+async function fetchQuestion(path: string, words: string[], timeoutMs = QUESTION_TIMEOUT_MS): Promise<unknown> {
   for (const word of words) {
     if (!WORD.test(word)) {
       throw new ApiError(`"${word}" can't be sent to the question service`, 400)
@@ -46,7 +50,7 @@ async function fetchQuestion(path: string, words: string[]): Promise<unknown> {
     response = await fetch(url, {
       headers: { password: env().questionPassword },
       cache: "no-store",
-      signal: AbortSignal.timeout(90_000),
+      signal: AbortSignal.timeout(timeoutMs),
     })
   } catch (error) {
     if (error instanceof Error && error.name === "TimeoutError") {
@@ -131,7 +135,7 @@ export async function generateMultiTranslations(
 
 /** Structured mnemonic from GET /mnemonic-j (`{ data, raw }`). */
 export async function generateMnemonic(word: string): Promise<{ data: MnemonicData; raw: unknown }> {
-  const body = await fetchQuestion("mnemonic-j", [word])
+  const body = await fetchQuestion("mnemonic-j", [word], MNEMONIC_TIMEOUT_MS)
   if (!isRecord(body) || !("raw" in body)) {
     throw new ApiError(`Mnemonic response was unreadable (${word})`, 502)
   }
