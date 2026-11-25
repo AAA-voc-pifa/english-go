@@ -5,8 +5,10 @@ ARG NODE_VERSION=22-bookworm-slim
 # --- dependencies ---
 FROM node:${NODE_VERSION} AS deps
 WORKDIR /app
+RUN corepack enable pnpm
 COPY package.json pnpm-lock.yaml ./
-RUN corepack enable pnpm && pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+    pnpm install --frozen-lockfile --store-dir /pnpm/store
 
 # --- build ---
 FROM node:${NODE_VERSION} AS builder
