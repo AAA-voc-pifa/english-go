@@ -5,19 +5,26 @@ services:
   english-go:
     image: english-go:latest
     ports:
-      - "${PORT:?未设置 PORT}:8000"
+      - "${PRO_PORT:?未设置生产环境的 english-go 端口}:80"
     environment:
-      MONGODB_URI: ${MONGODB_URI:?未设置 english-go 的 MongoDB URI}
+      MONGODB_URI: mongodb://db:27017/english-go
       APP_PASSWORD: ${APP_PASSWORD:?未设置 english-go 的 APP_PASSWORD}
-      TTS_API_PASSWORD: ${TTS_API_PASSWORD:?未设置 TTS_API_PASSWORD}
-      TTS_API_HOST: edge-tts-server
-      TTS_API_PORT: "8000"
+
       MY_VOC_API_HOST: my-voc
-      MY_VOC_API_PORT: "8000"
+      MY_VOC_API_PORT: "80"
+      MY_VOC_API_PASSWORD: ${MY_VOC_API_PASSWORD:?未设置 MY_VOC_API_PASSWORD}
+
       LLM4VOC_API_HOST: llm4voc
-      LLM4VOC_API_PORT: "8000"
+      LLM4VOC_API_PORT: "80"
+      LLM4VOC_API_PASSWORD: ${LLM4VOC_API_PASSWORD:?未设置 LLM4VOC_API_PASSWORD}
+
+      TTS_API_HOST: edge-tts-server
+      TTS_API_PORT: "80"
+      TTS_API_PASSWORD: ${TTS_API_PASSWORD:?未设置 TTS_API_PASSWORD}
+
     depends_on:
       - my-voc
       - llm4voc
       - edge-tts-server
+      - db
     restart: unless-stopped

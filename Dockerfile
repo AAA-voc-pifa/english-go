@@ -24,7 +24,8 @@ FROM node:${NODE_VERSION} AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV PORT=8000
+# nextjs 会自动读取环境变量中的 PORT
+ENV PORT=80
 ENV HOSTNAME=0.0.0.0
 
 COPY --from=builder --chown=node:node /app/public ./public
@@ -32,5 +33,5 @@ COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
 
 USER node
-EXPOSE 8000
+EXPOSE 80
 CMD ["node", "server.js"]

@@ -23,7 +23,9 @@ export function env() {
   return {
     mongodbUri: required("MONGODB_URI"),
     myVocBase: serviceOrigin("MY_VOC_API_HOST", "MY_VOC_API_PORT"),
+    myVocPassword: required("MY_VOC_API_PASSWORD"),
     llm4vocBase: serviceOrigin("LLM4VOC_API_HOST", "LLM4VOC_API_PORT"),
+    llm4vocPassword: required("LLM4VOC_API_PASSWORD"),
     ttsBase: serviceOrigin("TTS_API_HOST", "TTS_API_PORT"),
     ttsPassword: required("TTS_API_PASSWORD"),
     appPassword: required("APP_PASSWORD"),

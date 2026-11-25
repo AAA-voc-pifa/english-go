@@ -49,6 +49,7 @@ async function fetchLlm4voc(path: string, words: string[], timeoutMs = LLM_TIMEO
   let response: Response
   try {
     response = await fetch(url, {
+      headers: { Authentication: env().llm4vocPassword },
       cache: "no-store",
       signal: AbortSignal.timeout(timeoutMs),
     })
@@ -61,7 +62,7 @@ async function fetchLlm4voc(path: string, words: string[], timeoutMs = LLM_TIMEO
 
   const text = await response.text()
   if (!response.ok) {
-    // Plain-text quirks from llm4voc: baD requesT / noT founD / unknowN erroR
+    // Plain-text quirks from llm4voc: baD requesT / baD autH / noT founD / unknowN erroR
     const detail = text.replace(/\s+/g, " ").trim().slice(0, 180)
     throw new ApiError(detail ? `llm4voc failed (${label}): ${detail}` : `llm4voc failed (${label})`, 502)
   }

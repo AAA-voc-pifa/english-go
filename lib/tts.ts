@@ -20,16 +20,19 @@ function ttsDetail(text: string, fallback: string): string {
   return trimmed
 }
 
+function ttsHeaders(extra?: HeadersInit): HeadersInit {
+  return {
+    Authentication: env().ttsPassword,
+    ...extra,
+  }
+}
+
 async function ttsFetch(path: string, init?: RequestInit): Promise<Response> {
-  const { ttsBase, ttsPassword } = env()
-  const url = new URL(path.replace(/^\//, ""), `${ttsBase}/`)
+  const url = new URL(path.replace(/^\//, ""), `${env().ttsBase}/`)
   try {
     return await fetch(url, {
       ...init,
-      headers: {
-        password: ttsPassword,
-        ...init?.headers,
-      },
+      headers: ttsHeaders(init?.headers),
       cache: "no-store",
       signal: init?.signal ?? AbortSignal.timeout(30_000),
     })
@@ -62,9 +65,9 @@ function readVoice(value: unknown): TtsVoice | null {
   }
 }
 
-/** GET /auth — 204 on success; header `password` required. */
+/** POST /auth — 204 on success; header `Authentication` required. */
 export async function verifyTtsPassword(): Promise<void> {
-  const response = await ttsFetch("auth")
+  const response = await ttsFetch("auth", { method: "POST" })
   if (response.status === 204 || response.ok) return
   const detail = ttsDetail(await response.text().catch(() => ""), "")
   if (response.status === 403 || response.status === 401) {
@@ -111,8 +114,7 @@ export async function voiceExists(id: string): Promise<boolean> {
 
 /** GET /tts — streaming MP3; `rate` like `+0%` (optional upstream, default +0%). */
 export async function synthesize(text: string, speech: { voice: string; rate: string }): Promise<Response> {
-  const { ttsBase, ttsPassword } = env()
-  const url = new URL("tts", `${ttsBase}/`)
+  const url = new URL("tts", `${env().ttsBase}/`)
   url.searchParams.set("text", text)
   url.searchParams.set("voice", speech.voice)
   url.searchParams.set("rate", speech.rate)
@@ -120,7 +122,7 @@ export async function synthesize(text: string, speech: { voice: string; rate: st
   let response: Response
   try {
     response = await fetch(url, {
-      headers: { password: ttsPassword },
+      headers: ttsHeaders(),
       cache: "no-store",
       signal: AbortSignal.timeout(30_000),
     })

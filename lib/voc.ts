@@ -41,11 +41,16 @@ function vocMessage(body: unknown, status: number): string {
   return `Word list failed (${status})`
 }
 
+function vocHeaders(): HeadersInit {
+  return { Authentication: env().myVocPassword }
+}
+
 async function vocFetch(url: URL, method: "GET" | "POST"): Promise<unknown> {
   let response: Response
   try {
     response = await fetch(url, {
       method,
+      headers: vocHeaders(),
       cache: "no-store",
       signal: AbortSignal.timeout(15_000),
     })
@@ -84,12 +89,13 @@ function requireOk(body: unknown): asserts body is { ok: true; data: unknown } {
   }
 }
 
-/** my-voc has no `/auth`; probe a cheap always-200 endpoint. */
+/** POST /auth — `{ ok: true }`; header `Authentication` required. */
 export async function verifyVoc(): Promise<void> {
   let response: Response
   try {
-    response = await fetch(vocUrl("voc/exist/a"), {
-      method: "GET",
+    response = await fetch(vocUrl("auth"), {
+      method: "POST",
+      headers: vocHeaders(),
       cache: "no-store",
       signal: AbortSignal.timeout(15_000),
     })
@@ -101,7 +107,10 @@ export async function verifyVoc(): Promise<void> {
   }
 
   const body: unknown = await response.json().catch(() => null)
-  if (response.ok && isRecord(body) && body.ok === true && typeof body.data === "boolean") return
+  if (response.ok && isRecord(body) && body.ok === true) return
+  if (response.status === 401) {
+    throw new Error("Word list rejected the password. Check MY_VOC_API_PASSWORD")
+  }
   throw new Error(`Word list check failed (${response.status})`)
 }
 

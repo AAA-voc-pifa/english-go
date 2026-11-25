@@ -32,10 +32,20 @@ English Go:
 pnpm dev
 ```
 
-## Deploy
+## Deploy with docker
+
+先在服务器 build 底层服务。
+
+build english-go image:
 
 ```sh
+docker build -t english-go .
+```
+
+启动 mongodb、底层服务、english-go:
+```sh
 docker compose \
+	--env-file .env \
 	-f ./docker/pro/compose.yml \
 	up -d
 ```
