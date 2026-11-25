@@ -1,10 +1,7 @@
 import { ApiError, route } from "@/lib/api-error"
 import { requirePassword } from "@/lib/auth"
 import { increaseWordPoints } from "@/lib/voc"
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}
+import { isRecord } from "@/lib/is-record"
 
 export function POST(request: Request) {
   return route(async () => {

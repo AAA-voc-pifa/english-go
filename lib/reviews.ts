@@ -4,11 +4,19 @@ import { ApiError } from "@/lib/api-error"
 import { mnemonicsForWords } from "@/lib/mnemonics"
 import { parseId } from "@/lib/practices"
 import { sentencesByIds } from "@/lib/sentence-content"
+import { completedAtFromAwards } from "@/lib/session-status"
 import { collections, type ReviewDoc, type StarDoc } from "@/lib/store"
-import { isAward, type Deck, type MnemonicData, type ReviewSummary } from "@/lib/types"
+import {
+  isAward,
+  type AwardResponse,
+  type Deck,
+  type MnemonicData,
+  type ReviewSummary,
+} from "@/lib/types"
 import { increaseWordPoints } from "@/lib/voc"
 
 const REVIEW_SIZE = 9
+const PICK_PAGE = 24
 
 function toDeck(
   doc: ReviewDoc,
@@ -65,7 +73,11 @@ async function pruneUnstarred(doc: ReviewDoc): Promise<ReviewDoc> {
 
   const items = doc.items.filter((item) => alive.has(item.sentenceId.toHexString()))
   const cursor = items.length === 0 ? 0 : Math.min(doc.cursor, items.length - 1)
-  await reviews.updateOne({ _id: doc._id }, { $set: { items, cursor } })
+  const completedAt = completedAtFromAwards(
+    items.map((item) => item.award),
+    doc.completedAt,
+  )
+  await reviews.updateOne({ _id: doc._id }, { $set: { items, cursor, completedAt } })
   const next = await reviews.findOne({ _id: doc._id })
   if (!next) throw new ApiError("Review not found", 404)
   return next
@@ -92,12 +104,12 @@ async function readDeck(doc: ReviewDoc): Promise<Deck> {
 }
 
 function isOpenReview(doc: ReviewDoc): boolean {
-  return doc.items.length > 0 && doc.items.some((item) => item.award === null)
+  return doc.completedAt === null && doc.items.length > 0
 }
 
 async function findOpenReview(): Promise<ReviewDoc | null> {
   const { reviews } = await collections()
-  const docs = await reviews.findMany({}, { sort: { createdAt: -1 } })
+  const docs = await reviews.findMany({ completedAt: null }, { sort: { createdAt: -1 } })
   for (const doc of docs) {
     const pruned = await pruneUnstarred(doc)
     if (isOpenReview(pruned)) return pruned
@@ -105,28 +117,46 @@ async function findOpenReview(): Promise<ReviewDoc | null> {
   return null
 }
 
+/** Page through lowest-point stars until REVIEW_SIZE unique words are picked. */
+async function pickReviewStars(): Promise<StarDoc[]> {
+  const { stars } = await collections()
+  const picked: StarDoc[] = []
+  const seenWords = new Set<string>()
+  let skip = 0
+
+  while (picked.length < REVIEW_SIZE) {
+    const page = await stars.findMany(
+      {},
+      { sort: { points: 1, createdAt: 1, _id: 1 }, limit: PICK_PAGE, skip },
+    )
+    if (page.length === 0) break
+    skip += page.length
+
+    const sentenceMap = await sentencesByIds(page.map((star) => star.sentenceId))
+    for (const star of page) {
+      const sentence = sentenceMap.get(star.sentenceId.toHexString())
+      if (!sentence || seenWords.has(sentence.word)) continue
+      seenWords.add(sentence.word)
+      picked.push(star)
+      if (picked.length >= REVIEW_SIZE) break
+    }
+  }
+
+  return picked
+}
+
 export async function createReview(): Promise<Deck> {
   const open = await findOpenReview()
   if (open) return readDeck(open)
 
-  const { stars, reviews } = await collections()
-  const candidates = await stars.findMany({}, { sort: { points: 1, createdAt: 1 } })
-  const sentenceMap = await sentencesByIds(candidates.map((star) => star.sentenceId))
-  const picked: StarDoc[] = []
-  const seenWords = new Set<string>()
-  for (const star of candidates) {
-    const sentence = sentenceMap.get(star.sentenceId.toHexString())
-    if (!sentence) continue
-    if (seenWords.has(sentence.word)) continue
-    seenWords.add(sentence.word)
-    picked.push(star)
-    if (picked.length >= REVIEW_SIZE) break
-  }
+  const { reviews } = await collections()
+  const picked = await pickReviewStars()
   if (picked.length === 0) throw new ApiError("No starred sentences yet", 409)
 
   const doc: ReviewDoc = {
     _id: new ObjectId(),
     createdAt: new Date(),
+    completedAt: null,
     cursor: 0,
     items: picked.map((star) => ({
       sentenceId: star.sentenceId,
@@ -167,7 +197,11 @@ function wordPointsFromSentenceAward(award: number): number {
   return Math.ceil((award * 2) / 3)
 }
 
-export async function awardReviewCard(id: string, sentenceId: string, award: number): Promise<Deck> {
+export async function awardReviewCard(
+  id: string,
+  sentenceId: string,
+  award: number,
+): Promise<AwardResponse> {
   if (!isAward(award)) throw new ApiError("Score must be 5, 10, or 15", 400)
   const doc = await requireReview(id)
   const objectId = parseId(sentenceId, "Sentence not found")
@@ -182,6 +216,12 @@ export async function awardReviewCard(id: string, sentenceId: string, award: num
   ])
   if (!star || !sentence) throw new ApiError("Sentence not found", 404)
 
+  const nextAwards = doc.items.map((entry) =>
+    entry.sentenceId.equals(objectId) ? award : entry.award,
+  )
+  const completedAt = completedAtFromAwards(nextAwards, doc.completedAt)
+  const nextStarPoints = star.points + award
+
   const wordDelta = wordPointsFromSentenceAward(award)
   await increaseWordPoints(sentence.word, wordDelta)
   try {
@@ -193,10 +233,10 @@ export async function awardReviewCard(id: string, sentenceId: string, award: num
 
   const updated = await reviews.updateOne(
     { _id: doc._id },
-    { $set: { "items.$[item].award": award } },
+    { $set: { "items.$[item].award": award, completedAt } },
     { arrayFilters: [{ "item.sentenceId": objectId, "item.award": null }] },
   )
-  if (updated.matchedCount !== 1) {
+  if (updated.modifiedCount !== 1) {
     await Promise.all([
       stars.updateOne({ _id: star._id }, { $inc: { points: -award } }).catch(() => undefined),
       increaseWordPoints(sentence.word, -wordDelta).catch(() => undefined),
@@ -207,5 +247,10 @@ export async function awardReviewCard(id: string, sentenceId: string, award: num
   await recordScore().catch((error: unknown) => {
     console.error("activity bump failed", error instanceof Error ? error.message : "error")
   })
-  return getReview(id)
+  return {
+    cardId: sentenceId,
+    award,
+    points: nextStarPoints,
+    finished: completedAt !== null,
+  }
 }

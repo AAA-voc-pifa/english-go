@@ -5,8 +5,10 @@ import { mnemonicsForWords } from "@/lib/mnemonics"
 import { generateMultiTranslations, generateTranslations } from "@/lib/llm4voc"
 import { ensureSentence, sentencesByIds } from "@/lib/sentence-content"
 import { collections, type PracticeDoc, type PracticeLine, type SentenceDoc } from "@/lib/store"
+import { completedAtFromAwards } from "@/lib/session-status"
 import {
   isAward,
+  type AwardResponse,
   type Deck,
   type DeckCard,
   type DeckGroup,
@@ -32,15 +34,15 @@ async function openPracticeState(): Promise<{
   openIds: string[]
 }> {
   const { practices } = await collections()
-  const docs = await practices.findMany({}, { sort: { createdAt: 1, _id: 1 } })
+  const docs = await practices.findMany(
+    { completedAt: null },
+    { sort: { createdAt: 1, _id: 1 } },
+  )
   if (docs.length === 0) return { count: 0, busyWords: new Set(), openIds: [] }
 
   const busyWords = new Set<string>()
   const openIds: string[] = []
   for (const doc of docs) {
-    if (doc.lines.length === 0) continue
-    const answered = doc.lines.filter((line) => line.award !== null).length
-    if (answered >= doc.lines.length) continue
     openIds.push(doc._id.toHexString())
     for (const word of doc.words) busyWords.add(word.word)
   }
@@ -152,18 +154,17 @@ async function pickWords(count: number, busyWords: Set<string>): Promise<VocWord
 async function buildLines(
   questions: Array<{ word: string; en: string; zh: string }>,
 ): Promise<{ lines: PracticeLine[]; sentenceMap: Map<string, SentenceDoc> }> {
+  const sentences = await Promise.all(questions.map((question) => ensureSentence(question)))
   const sentenceMap = new Map<string, SentenceDoc>()
-  const lines: PracticeLine[] = []
-  for (const [position, question] of questions.entries()) {
-    const sentence = await ensureSentence(question)
+  const lines: PracticeLine[] = sentences.map((sentence, position) => {
     sentenceMap.set(sentence._id.toHexString(), sentence)
-    lines.push({
+    return {
       _id: new ObjectId(),
       position,
       sentenceId: sentence._id,
       award: null,
-    })
-  }
+    }
+  })
   return { lines, sentenceMap }
 }
 
@@ -201,6 +202,7 @@ async function createDeepPractice(busyWords: Set<string>): Promise<Deck> {
   const practiceDoc: PracticeDoc = {
     _id: practiceId,
     createdAt: new Date(),
+    completedAt: null,
     cursor: 0,
     kind: "deep",
     words,
@@ -240,6 +242,7 @@ async function createWidePractice(busyWords: Set<string>): Promise<Deck> {
   const practiceDoc: PracticeDoc = {
     _id: practiceId,
     createdAt: new Date(),
+    completedAt: null,
     cursor: 0,
     kind: "wide",
     words,
@@ -359,7 +362,11 @@ export async function setPracticeCursor(id: string, cursor: number): Promise<Dec
   return getPractice(id)
 }
 
-export async function awardPracticeLine(id: string, lineId: string, award: number): Promise<Deck> {
+export async function awardPracticeLine(
+  id: string,
+  lineId: string,
+  award: number,
+): Promise<AwardResponse> {
   if (!isAward(award)) throw new ApiError("Score must be 5, 10, or 15", 400)
   const doc = await requirePractice(id)
   const { practices } = await collections()
@@ -372,10 +379,15 @@ export async function awardPracticeLine(id: string, lineId: string, award: numbe
   const sentence = sentenceMap.get(line.sentenceId.toHexString())
   if (!sentence) throw new ApiError("Sentence not found", 404)
 
+  const nextAwards = doc.lines.map((entry) =>
+    entry._id.equals(lineObjectId) ? award : entry.award,
+  )
+  const completedAt = completedAtFromAwards(nextAwards, doc.completedAt)
+
   const nextPoints = await increaseWordPoints(sentence.word, award)
   const updated = await practices.updateOne(
     { _id: doc._id, lines: { $elemMatch: { _id: lineObjectId, award: null } } },
-    { $set: { "lines.$.award": award } },
+    { $set: { "lines.$.award": award, completedAt } },
   )
   if (updated.matchedCount !== 1) {
     await increaseWordPoints(sentence.word, -award).catch(() => undefined)
@@ -391,7 +403,7 @@ export async function awardPracticeLine(id: string, lineId: string, award: numbe
     await practices
       .updateOne(
         { _id: doc._id, "lines._id": lineObjectId },
-        { $set: { "lines.$.award": null } },
+        { $set: { "lines.$.award": null, completedAt: doc.completedAt } },
       )
       .catch(() => undefined)
     await increaseWordPoints(sentence.word, -award).catch(() => undefined)
@@ -401,5 +413,11 @@ export async function awardPracticeLine(id: string, lineId: string, award: numbe
   await recordScore().catch((error: unknown) => {
     console.error("activity bump failed", error instanceof Error ? error.message : "error")
   })
-  return getPractice(id)
+  return {
+    cardId: lineId,
+    award,
+    points: nextPoints,
+    finished: completedAt !== null,
+    word: sentence.word,
+  }
 }

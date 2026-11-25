@@ -1,12 +1,9 @@
 import { route } from "@/lib/api-error"
 import { requirePassword } from "@/lib/auth"
+import { isRecord } from "@/lib/is-record"
 import { awardReviewCard } from "@/lib/reviews"
 
 type Context = { params: Promise<{ id: string; cardId: string }> }
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}
 
 export function PATCH(request: Request, context: Context) {
   return route(async () => {
@@ -16,7 +13,7 @@ export function PATCH(request: Request, context: Context) {
     if (!isRecord(body)) return Response.json({ error: "Bad request" }, { status: 400 })
 
     if (typeof body.award === "number") {
-      return Response.json({ deck: await awardReviewCard(id, cardId, body.award) })
+      return Response.json(await awardReviewCard(id, cardId, body.award))
     }
 
     return Response.json({ error: "Nothing to update" }, { status: 400 })

@@ -20,7 +20,7 @@ Active solo development. Prefer **logically elegant** models and code over produ
 - **Star** — favourite a practice sentence (`stars` → `sentences`); review points start at 0.
 - **Review** — re-score favourites → points go to the **star**, and `ceil(award*2/3)` to the word.
 
-Data: `sentences` = word/en/zh · `stars` = sentenceId + points · `practices` / `reviews` reference `sentenceId` only.
+Data: `sentences` = word/en/zh · `stars` = sentenceId + points · `practices` / `reviews` reference `sentenceId` only · open sessions have `completedAt: null`.
 
 ## External services
 

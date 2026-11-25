@@ -6,6 +6,7 @@ import {
   type MnemonicData,
   type MnemonicDoc,
 } from "@/lib/db-schema"
+import { isRecord } from "@/lib/is-record"
 import { getDb } from "@/lib/mongo"
 import { generateMnemonic } from "@/lib/llm4voc"
 import type { MnemonicDetail, MnemonicSummary } from "@/lib/types"
@@ -15,10 +16,6 @@ const STRUCTURED_MIGRATION_ID = "mnemonic-structured-v1"
 
 function isDuplicate(error: unknown): boolean {
   return error instanceof MongoServerError && error.code === 11000
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }
 
 function blankToNull(value: string | null | undefined): string | null {

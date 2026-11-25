@@ -1,10 +1,7 @@
 import { route } from "@/lib/api-error"
 import { requirePassword } from "@/lib/auth"
 import { getSettings, updateSettings } from "@/lib/settings"
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}
+import { isRecord } from "@/lib/is-record"
 
 export function GET(request: Request) {
   return route(async () => {

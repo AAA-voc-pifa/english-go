@@ -2,7 +2,7 @@
  * Read-only integrity check for english-go MongoDB data.
  *
  *   pnpm check-db
- *   node --env-file=.env.local --experimental-strip-types scripts/check-db.mts
+ *   node --env-file=.env --experimental-strip-types scripts/check-db.mts
  */
 
 import { MongoClient, ObjectId } from "mongodb"
@@ -24,6 +24,7 @@ const EXPECTED_MIGRATIONS = [
   "embed-practice-lines-v1",
   "practice-kind-v1",
   "question-raws-words-v1",
+  "completed-at-v1",
 ]
 
 const issues: Issue[] = []
@@ -61,7 +62,7 @@ function short(text: string, max = 48): string {
 async function main() {
   const uri = process.env.MONGODB_URI?.trim()
   if (!uri) {
-    console.error("Missing MONGODB_URI (load via --env-file=.env.local)")
+    console.error("Missing MONGODB_URI (load via --env-file=.env)")
     process.exit(2)
   }
 
@@ -199,6 +200,9 @@ async function main() {
       if (!isDate(raw.createdAt)) {
         note("error", "practices", "createdAt must be Date", id)
       }
+      if (raw.completedAt !== null && !isDate(raw.completedAt)) {
+        note("error", "practices", "completedAt must be Date or null", id)
+      }
       if (raw.kind !== undefined && raw.kind !== "deep" && raw.kind !== "wide") {
         note("error", "practices", `invalid kind "${String(raw.kind)}"`, id)
       }
@@ -322,8 +326,12 @@ async function main() {
         note("error", "practices", `cursor ${raw.cursor} out of range for ${n} lines`, id)
       }
 
-      if (n > 0 && answered > 0 && answered < n) {
-        // open practice — fine
+      const open = n > 0 && answered < n
+      if (open && raw.completedAt !== null && raw.completedAt !== undefined) {
+        note("warn", "practices", "open practice has completedAt set", id)
+      }
+      if (!open && raw.completedAt === null) {
+        note("warn", "practices", "finished practice missing completedAt", id)
       }
     }
 
@@ -336,6 +344,9 @@ async function main() {
 
       if (!isDate(raw.createdAt)) {
         note("error", "reviews", "createdAt must be Date", id)
+      }
+      if (raw.completedAt !== null && !isDate(raw.completedAt)) {
+        note("error", "reviews", "completedAt must be Date or null", id)
       }
       if (!Array.isArray(raw.items)) {
         note("error", "reviews", "items must be an array", id)
@@ -389,6 +400,17 @@ async function main() {
         if (raw.cursor !== 0) note("warn", "reviews", `empty review has cursor ${raw.cursor}`, id)
       } else if (raw.cursor < 0 || raw.cursor >= n) {
         note("error", "reviews", `cursor ${raw.cursor} out of range for ${n} items`, id)
+      }
+
+      const answered = raw.items.filter(
+        (item) => isRecord(item) && item.award !== null && isAward(item.award),
+      ).length
+      const open = n > 0 && answered < n
+      if (open && raw.completedAt !== null && raw.completedAt !== undefined) {
+        note("warn", "reviews", "open review has completedAt set", id)
+      }
+      if (!open && raw.completedAt === null) {
+        note("warn", "reviews", "finished review missing completedAt", id)
       }
     }
 

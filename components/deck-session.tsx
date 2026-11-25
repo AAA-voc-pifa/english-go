@@ -17,6 +17,7 @@ import { refreshOpenPractice, removeOpenPracticeId, setSuppressReadyDialog } fro
 import type {
   AppSettings,
   Award,
+  AwardResponse,
   Deck,
   DeckCard,
   DeckResponse,
@@ -24,20 +25,19 @@ import type {
   SettingsResponse,
 } from "@/lib/types"
 
-function takeScores(current: Deck, incoming: Deck): Deck {
-  if (current.id !== incoming.id) return current
-  const cardPoints = new Map(incoming.cards.map((card) => [card.id, card.points]))
-  const groupPoints = new Map(incoming.groups.map((group) => [group.key, group.points]))
+function applyAward(current: Deck, patch: AwardResponse): Deck {
   return {
     ...current,
-    groups: current.groups.map((group) => ({
-      ...group,
-      points: groupPoints.get(group.key) ?? group.points,
-    })),
-    cards: current.cards.map((card) => ({
-      ...card,
-      points: cardPoints.get(card.id) ?? card.points,
-    })),
+    groups: current.groups.map((group) => {
+      if (patch.word && group.key === patch.word) return { ...group, points: patch.points }
+      if (!patch.word && group.key === patch.cardId) return { ...group, points: patch.points }
+      return group
+    }),
+    cards: current.cards.map((card) => {
+      if (card.id === patch.cardId) return { ...card, award: patch.award, points: patch.points }
+      if (patch.word && card.word === patch.word) return { ...card, points: patch.points }
+      return card
+    }),
   }
 }
 
@@ -217,13 +217,13 @@ export function DeckSession({
           : current.cursor
       return { ...current, cards, cursor }
     })
-    void requestJson<DeckResponse>(endpoint(kind, id, item.id), {
+    void requestJson<AwardResponse>(endpoint(kind, id, item.id), {
       method: "PATCH",
       body: JSON.stringify({ award: points }),
     })
       .then((data) => {
-        setDeck((latest) => (latest ? takeScores(latest, data.deck) : latest))
-        if (kind === "practice" && isFinished(data.deck)) {
+        setDeck((latest) => (latest ? applyAward(latest, data) : latest))
+        if (kind === "practice" && data.finished) {
           removeOpenPracticeId(id)
           void refreshOpenPractice()
         }

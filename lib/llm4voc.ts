@@ -1,6 +1,7 @@
 import { ApiError } from "@/lib/api-error"
 import { mnemonicDataSchema, type MnemonicData } from "@/lib/db-schema"
 import { env } from "@/lib/env"
+import { isRecord } from "@/lib/is-record"
 
 /** Matches llm4voc word query: letters, optional hyphen compounds. */
 const WORD = /^[A-Za-z]+(?:-[A-Za-z]+)*$/
@@ -25,10 +26,6 @@ export type GeneratedMultiQuestion = {
 export type GeneratedMultiQuestions = {
   questions: GeneratedMultiQuestion[]
   raw: unknown
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }
 
 const LLM_TIMEOUT_MS = 90_000

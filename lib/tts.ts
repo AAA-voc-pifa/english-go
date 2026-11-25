@@ -1,10 +1,7 @@
 import { ApiError } from "@/lib/api-error"
 import { env } from "@/lib/env"
 import type { TtsVoice } from "@/lib/speech"
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}
+import { isRecord } from "@/lib/is-record"
 
 function ttsDetail(text: string, fallback: string): string {
   const trimmed = text.replace(/\s+/g, " ").trim().slice(0, 180)

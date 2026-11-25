@@ -6,6 +6,16 @@ import { listAllWords } from "@/lib/voc"
 /** my-voc sentinel for graduated / parked words — exclude from score spread. */
 const VOC_SENTINEL = 99999
 
+const POINT_BUCKETS = [
+  { label: "0", min: 0, max: 0 },
+  { label: "1–14", min: 1, max: 14 },
+  { label: "15–29", min: 15, max: 29 },
+  { label: "30–49", min: 30, max: 49 },
+  { label: "50–79", min: 50, max: 79 },
+  { label: "80–119", min: 80, max: 119 },
+  { label: "120+", min: 120, max: Number.POSITIVE_INFINITY },
+] as const
+
 function round1(value: number): number {
   return Math.round(value * 10) / 10
 }
@@ -18,26 +28,128 @@ function median(sorted: number[]): number {
 }
 
 function scoreBuckets(points: number[]): Array<{ label: string; count: number }> {
-  // 0 = untouched; 1–14 includes a single wide award (5/10) before a full deep floor (3×5).
-  const labels = ["0", "1–14", "15–29", "30–49", "50–79", "80–119", "120+"]
-  const counts = [0, 0, 0, 0, 0, 0, 0]
+  const counts = POINT_BUCKETS.map(() => 0)
   for (const value of points) {
-    if (value <= 0) counts[0] += 1
-    else if (value < 15) counts[1] += 1
-    else if (value < 30) counts[2] += 1
-    else if (value < 50) counts[3] += 1
-    else if (value < 80) counts[4] += 1
-    else if (value < 120) counts[5] += 1
-    else counts[6] += 1
+    const index = POINT_BUCKETS.findIndex((bucket) => value >= bucket.min && value <= bucket.max)
+    counts[index === -1 ? counts.length - 1 : index] += 1
   }
-  return labels.map((label, index) => ({ label, count: counts[index] }))
+  return POINT_BUCKETS.map((bucket, index) => ({ label: bucket.label, count: counts[index] }))
+}
+
+type PracticeAgg = {
+  total: number
+  completed: number
+  sentencesScored: number
+  pointsEarned: number
+}
+
+type ReviewAgg = {
+  total: number
+  completed: number
+  sentencesScored: number
+}
+
+async function aggregatePractices(): Promise<PracticeAgg> {
+  const { practices } = await collections()
+  const rows = await practices.raw
+    .aggregate<{
+      total: number
+      completed: number
+      sentencesScored: number
+      pointsEarned: number
+    }>([
+      {
+        $project: {
+          completed: { $cond: [{ $ne: ["$completedAt", null] }, 1, 0] },
+          answered: {
+            $size: {
+              $filter: {
+                input: "$lines",
+                as: "line",
+                cond: { $ne: ["$$line.award", null] },
+              },
+            },
+          },
+          gained: {
+            $sum: {
+              $map: {
+                input: "$lines",
+                as: "line",
+                in: { $ifNull: ["$$line.award", 0] },
+              },
+            },
+          },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          completed: { $sum: "$completed" },
+          sentencesScored: { $sum: "$answered" },
+          pointsEarned: { $sum: "$gained" },
+        },
+      },
+    ])
+    .toArray()
+
+  const row = rows[0]
+  return {
+    total: row?.total ?? 0,
+    completed: row?.completed ?? 0,
+    sentencesScored: row?.sentencesScored ?? 0,
+    pointsEarned: row?.pointsEarned ?? 0,
+  }
+}
+
+async function aggregateReviews(): Promise<ReviewAgg> {
+  const { reviews } = await collections()
+  const rows = await reviews.raw
+    .aggregate<{
+      total: number
+      completed: number
+      sentencesScored: number
+    }>([
+      {
+        $project: {
+          completed: { $cond: [{ $ne: ["$completedAt", null] }, 1, 0] },
+          answered: {
+            $size: {
+              $filter: {
+                input: "$items",
+                as: "item",
+                cond: { $ne: ["$$item.award", null] },
+              },
+            },
+          },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          completed: { $sum: "$completed" },
+          sentencesScored: { $sum: "$answered" },
+        },
+      },
+    ])
+    .toArray()
+
+  const row = rows[0]
+  return {
+    total: row?.total ?? 0,
+    completed: row?.completed ?? 0,
+    sentencesScored: row?.sentencesScored ?? 0,
+  }
 }
 
 export async function getStats(): Promise<StatsSnapshot> {
-  const [{ practices, stars, reviews }, words, activity] = await Promise.all([
+  const [{ stars }, words, activity, practiceAgg, reviewAgg] = await Promise.all([
     collections(),
     listAllWords(),
     listActivityHeatmap(53),
+    aggregatePractices(),
+    aggregateReviews(),
   ])
 
   const activeWords = words.filter((item) => item.points < VOC_SENTINEL)
@@ -47,38 +159,12 @@ export async function getStats(): Promise<StatsSnapshot> {
     .map((item) => item.points)
   const totalPoints = pointValues.reduce((sum, value) => sum + value, 0)
 
-  const [practiceDocs, favourites, reviewDocs] = await Promise.all([
-    practices.findMany({}),
-    stars.findMany({}),
-    reviews.findMany({}),
-  ])
-
-  let completedPractices = 0
-  let sentencesScored = 0
-  let pointsEarned = 0
-  for (const practice of practiceDocs) {
-    if (practice.lines.length === 0) continue
-    let answered = 0
-    let gained = 0
-    for (const line of practice.lines) {
-      if (line.award === null) continue
-      answered += 1
-      gained += line.award
-    }
-    sentencesScored += answered
-    pointsEarned += gained
-    if (answered === practice.lines.length) completedPractices += 1
-  }
-
-  let reviewCompleted = 0
-  let reviewScored = 0
-  for (const review of reviewDocs) {
-    const answered = review.items.filter((item) => item.award !== null).length
-    reviewScored += answered
-    if (review.items.length > 0 && answered === review.items.length) reviewCompleted += 1
-  }
-
-  const favouritePoints = favourites.map((item) => item.points).slice().sort((left, right) => left - right)
+  // Favourites stay as a full read: median/buckets need the point list; count stays small.
+  const favourites = await stars.findMany({})
+  const favouritePoints = favourites
+    .map((item) => item.points)
+    .slice()
+    .sort((left, right) => left - right)
   const favouriteTotal = favouritePoints.reduce((sum, value) => sum + value, 0)
 
   return {
@@ -90,12 +176,7 @@ export async function getStats(): Promise<StatsSnapshot> {
       highest: pointValues.at(-1) ?? 0,
       buckets: scoreBuckets(pointValues),
     },
-    practices: {
-      total: practiceDocs.length,
-      completed: completedPractices,
-      sentencesScored,
-      pointsEarned,
-    },
+    practices: practiceAgg,
     favourites: {
       total: favourites.length,
       average: favourites.length === 0 ? 0 : round1(favouriteTotal / favourites.length),
@@ -104,11 +185,7 @@ export async function getStats(): Promise<StatsSnapshot> {
       highest: favouritePoints.at(-1) ?? 0,
       buckets: scoreBuckets(favouritePoints),
     },
-    reviews: {
-      total: reviewDocs.length,
-      completed: reviewCompleted,
-      sentencesScored: reviewScored,
-    },
+    reviews: reviewAgg,
     activity,
   }
 }

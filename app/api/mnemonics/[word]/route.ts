@@ -1,12 +1,9 @@
 import { route } from "@/lib/api-error"
 import { requirePassword } from "@/lib/auth"
 import { deleteMnemonic, getMnemonic, updateMnemonic } from "@/lib/mnemonics"
+import { isRecord } from "@/lib/is-record"
 
 type Context = { params: Promise<{ word: string }> }
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}
 
 export function GET(request: Request, context: Context) {
   return route(async () => {

@@ -2,6 +2,7 @@ import { ObjectId } from "mongodb"
 import { ApiError } from "@/lib/api-error"
 import { findPracticeLine, parseId } from "@/lib/practices"
 import { requireSentence } from "@/lib/sentence-content"
+import { completedAtFromAwards } from "@/lib/session-status"
 import { collections, type SentenceDoc, type StarDoc } from "@/lib/store"
 import type { StarredSentence } from "@/lib/types"
 
@@ -94,7 +95,11 @@ export async function deleteStar(id: string): Promise<void> {
     affected.map((doc) => {
       const items = doc.items.filter((item) => !item.sentenceId.equals(sentenceId))
       const cursor = items.length === 0 ? 0 : Math.min(doc.cursor, items.length - 1)
-      return reviews.updateOne({ _id: doc._id }, { $set: { items, cursor } })
+      const completedAt = completedAtFromAwards(
+        items.map((item) => item.award),
+        doc.completedAt,
+      )
+      return reviews.updateOne({ _id: doc._id }, { $set: { items, cursor, completedAt } })
     }),
   )
 }

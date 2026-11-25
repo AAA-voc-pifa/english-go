@@ -5,20 +5,9 @@ import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { KeyButton } from "@/components/key-button"
 import { LoadMoreSentinel } from "@/components/load-more-sentinel"
+import { formatWhen } from "@/lib/format-when"
 import { requestJson } from "@/lib/http"
 import type { PracticeKind, PracticeListResponse, PracticeSummary } from "@/lib/types"
-
-function formatWhen(iso: string): string {
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return iso
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(date)
-}
 
 function kindLabel(kind: PracticeKind): string {
   return kind === "wide" ? "9 words · 1 each" : "3 words · 3 each"

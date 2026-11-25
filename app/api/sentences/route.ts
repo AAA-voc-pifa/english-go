@@ -2,10 +2,7 @@ import { route } from "@/lib/api-error"
 import { requirePassword } from "@/lib/auth"
 import { readCursor, readLimit } from "@/lib/query"
 import { listSentences, starPracticeLine } from "@/lib/sentences"
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}
+import { isRecord } from "@/lib/is-record"
 
 export function GET(request: Request) {
   return route(async () => {

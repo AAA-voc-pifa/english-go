@@ -12,6 +12,7 @@ import {
   type SentenceDoc,
   type StarDoc,
 } from "@/lib/db-schema"
+import { isRecord } from "@/lib/is-record"
 import { getDb } from "@/lib/mongo"
 import { isAward, type Award, type PracticeWord } from "@/lib/types"
 import { validatedCollection, type DocCollection } from "@/lib/validated-collection"
@@ -31,6 +32,7 @@ const STARS_MIGRATION_ID = "sentence-content-stars-v1"
 const EMBED_LINES_MIGRATION_ID = "embed-practice-lines-v1"
 const PRACTICE_KIND_MIGRATION_ID = "practice-kind-v1"
 const QUESTION_RAWS_WORDS_MIGRATION_ID = "question-raws-words-v1"
+const COMPLETED_AT_MIGRATION_ID = "completed-at-v1"
 
 export type AppCollections = {
   practices: DocCollection<PracticeDoc>
@@ -72,13 +74,17 @@ async function prepare(
   await migrateEmbedLines(db, practices, reviews)
   await migratePracticeKind(db, practices)
   await migrateQuestionRawsWords(db, practices)
+  await migrateCompletedAt(db, practices, reviews)
   await Promise.all([
     practices.createIndex({ createdAt: -1 }, { name: "createdAt_desc" }),
     practices.createIndex({ "lines._id": 1 }, { name: "lines_id" }),
+    practices.createIndex({ completedAt: 1, createdAt: 1 }, { name: "completedAt_createdAt" }),
     sentences.createIndex({ en: 1 }, { unique: true, name: "en" }),
     stars.createIndex({ sentenceId: 1 }, { unique: true, name: "sentenceId" }),
     stars.createIndex({ points: 1, createdAt: 1, _id: 1 }, { name: "points_createdAt" }),
     reviews.createIndex({ createdAt: -1 }, { name: "createdAt_desc" }),
+    reviews.createIndex({ completedAt: 1, createdAt: -1 }, { name: "completedAt_createdAt" }),
+    reviews.createIndex({ "items.sentenceId": 1 }, { name: "items_sentenceId" }),
   ])
   try {
     await sentences.dropIndex("points_createdAt")
@@ -126,8 +132,45 @@ async function migrateQuestionRawsWords(db: Db, practices: Collection<PracticeDo
   )
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
+function backfillCompletedAt(
+  awards: unknown[],
+  createdAt: unknown,
+): Date | null {
+  const fallback = createdAt instanceof Date ? createdAt : new Date()
+  if (awards.length === 0) return fallback
+  if (awards.some((item) => isRecord(item) && item.award === null)) return null
+  return fallback
+}
+
+async function migrateCompletedAt(
+  db: Db,
+  practices: Collection<PracticeDoc>,
+  reviews: Collection<ReviewDoc>,
+) {
+  const migrations = db.collection<{ _id: string }>("migrations")
+  if (await migrations.findOne({ _id: COMPLETED_AT_MIGRATION_ID })) return
+
+  for await (const raw of practices.find({ completedAt: { $exists: false } })) {
+    if (!isRecord(raw) || !(raw._id instanceof ObjectId) || !Array.isArray(raw.lines)) continue
+    await practices.updateOne(
+      { _id: raw._id },
+      { $set: { completedAt: backfillCompletedAt(raw.lines, raw.createdAt) } },
+    )
+  }
+
+  for await (const raw of reviews.find({ completedAt: { $exists: false } })) {
+    if (!isRecord(raw) || !(raw._id instanceof ObjectId) || !Array.isArray(raw.items)) continue
+    await reviews.updateOne(
+      { _id: raw._id },
+      { $set: { completedAt: backfillCompletedAt(raw.items, raw.createdAt) } },
+    )
+  }
+
+  await migrations.updateOne(
+    { _id: COMPLETED_AT_MIGRATION_ID },
+    { $set: { at: new Date() } },
+    { upsert: true },
+  )
 }
 
 function isDuplicate(error: unknown): boolean {
@@ -355,7 +398,7 @@ async function migrateEmbedLines(db: Db, practices: Collection<PracticeDoc>, rev
   const legacyLines = lineNames.length > 0 ? db.collection("practice_lines") : null
 
   for await (const practice of practices.find({})) {
-    let lines: PracticeLine[] = []
+    const lines: PracticeLine[] = []
     if (Array.isArray(practice.lines) && practice.lines.length > 0) {
       for (const item of practice.lines) {
         if (!isRecord(item) || !(item._id instanceof ObjectId)) continue

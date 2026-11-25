@@ -3,20 +3,9 @@
 import Link from "next/link"
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { LoadMoreSentinel } from "@/components/load-more-sentinel"
+import { formatWhen } from "@/lib/format-when"
 import { requestJson } from "@/lib/http"
 import type { MnemonicListResponse, MnemonicSummary } from "@/lib/types"
-
-function formatWhen(iso: string): string {
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return iso
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(date)
-}
 
 export default function MnemonicsPage() {
   const [query, setQuery] = useState("")

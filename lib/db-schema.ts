@@ -30,6 +30,8 @@ export const practiceSchema = z
   .strictObject({
     _id: objectIdSchema,
     createdAt: z.date(),
+    /** Null while any line is unscored; set when the practice finishes (or has no lines). */
+    completedAt: z.date().nullable(),
     cursor: z.number().int().nonnegative(),
     kind: z.enum(["deep", "wide"]),
     words: z.array(practiceWordSchema).min(1),
@@ -123,6 +125,8 @@ export const reviewSchema = z
   .strictObject({
     _id: objectIdSchema,
     createdAt: z.date(),
+    /** Null while any item is unscored; set when the review finishes (or has no items). */
+    completedAt: z.date().nullable(),
     cursor: z.number().int().nonnegative(),
     items: z.array(reviewItemSchema),
   })

@@ -1,5 +1,6 @@
 import { ApiError } from "@/lib/api-error"
 import { env } from "@/lib/env"
+import { isRecord } from "@/lib/is-record"
 
 export type VocWord = {
   word: string
@@ -17,10 +18,6 @@ function vocUrl(path: string, query?: Record<string, string>): URL {
     for (const [key, value] of Object.entries(query)) url.searchParams.set(key, value)
   }
   return url
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }
 
 /** my-voc: business failure → 200 + `{ ok: false, error }`; bad params → 422. */
@@ -156,15 +153,16 @@ export async function getWordPoints(word: string): Promise<number> {
   return readWord(body.data).points
 }
 
-export async function addWordPoints(word: string, points: number): Promise<void> {
+/** POST /voc/points/:word — returns the word's points after the delta. */
+export async function addWordPoints(word: string, points: number): Promise<number> {
   const body = await vocFetch(
     vocUrl(`voc/points/${encodeURIComponent(word)}`, { points: String(points) }),
     "POST",
   )
   requireOk(body)
+  return readWord(body.data).points
 }
 
 export async function increaseWordPoints(word: string, delta: number): Promise<number> {
-  await addWordPoints(word, delta)
-  return getWordPoints(word)
+  return addWordPoints(word, delta)
 }

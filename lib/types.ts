@@ -99,6 +99,18 @@ export type AppSettings = {
 }
 
 export type DeckResponse = { deck: Deck }
+
+/** Slim PATCH response after scoring a card — client already applied award optimistically. */
+export type AwardResponse = {
+  cardId: string
+  award: Award
+  /** Display points for the card (practice: word points; review: star points). */
+  points: number
+  finished: boolean
+  /** Practice only: word key so sibling cards / group points can update. */
+  word?: string
+}
+
 export type OpenPracticeResponse = { openIds: string[] }
 export type PracticeListResponse = { practices: PracticeSummary[]; nextCursor: string | null }
 export type SentenceListResponse = { sentences: StarredSentence[]; nextCursor: string | null }
